@@ -98,6 +98,8 @@ class Rocket:
         return self._center_of_mass_slot()
 
     def _center_of_mass_slot(self) -> float:
+        if self.total_weight <= 0:
+            return 0.0
         weighted = sum(p.slot_index * p.part_def.weight for p in self.parts)
         return weighted / self.total_weight
 
@@ -131,6 +133,8 @@ class Rocket:
 
     @property
     def performance(self) -> float:
+        if self.mass <= 0:
+            return 0.0
         return (self.power * self.aerodynamics * self.fuel_bonus) / self.mass
 
     def validate(self) -> list[str]:

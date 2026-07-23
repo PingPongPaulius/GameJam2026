@@ -69,11 +69,15 @@ class AnimationAssetAdapter:
             self._cache[filename] = frames[0] if isinstance(frames, (list, tuple)) else frames
         return self._cache[filename]
 
-
+# Variables for the build area and the rocket
 slot_height = 64
 slot_count = 20
 horizontal_snap_points = 8
+
+# Countdown for the launch
 build_countdown_seconds = 10
+
+# Debug options
 show_rocket_debug = True
 enable_snap_draws = False
 
@@ -120,6 +124,22 @@ def _max_scroll() -> int:
     return max(0, _background_stack_height() - SCREEN_HEIGHT)
 
 
+def update_flight(dt: float):
+    global V
+    rocket.velocity = V
+    if V > 0:
+        rocket.height += V * dt
+
+    if rocket.fuel_remaining > 0 and V > 0:
+        rocket.fuel_remaining = max(
+            0.0,
+            rocket.fuel_remaining - rocket.fuel_consumption_rate * dt,
+        )
+        rocket.heat += rocket.total_thrust * 0.01 * dt
+
+    rocket.heat = max(0.0, rocket.heat - rocket.total_heat_dissipation * dt)
+
+
 def start_flight():
     global phase, V, camera_scroll_y
     errors = rocket.validate()
@@ -131,10 +151,13 @@ def start_flight():
     flight_parts.clear()
     camera_scroll_y = 0
     V = 0
+    rocket.height = 0.0
+    rocket.heat = 0.0
+    rocket.fuel_remaining = rocket.total_fuel_capacity
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
-        V = rocket.performance
+    V = rocket.performance
     rocket.velocity = V
 
 
@@ -248,6 +271,7 @@ def frame():
         build_scene.draw(screen)
 
     elif phase == Phase.FLIGHT:
+        update_flight(dt)
         for instance in flight_parts:
             instance.y -= V * dt
         handle_camera()
@@ -261,7 +285,7 @@ def frame():
     exit_button.render(screen)
 
     if show_rocket_debug:
-        rocket_debug_panel.draw(screen, rocket)
+        rocket_debug_panel.draw(screen, rocket, in_flight=phase == Phase.FLIGHT)
 
     pygame.display.flip()
     dt = clock.tick(FPS) / 1000
