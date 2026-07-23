@@ -14,6 +14,7 @@ from rocket.build_area import BuildArea
 from ui.part_palette import PartPalette
 from ui.rocket_debug_panel import RocketDebugPanel
 from scenes.build_scene import BuildScene
+from rendering.rocket_renderer import draw_rocket
 
 pygame.init()
 SCREEN_WIDTH = 1280
@@ -29,13 +30,20 @@ class Phase(Enum):
     FLIGHT = auto()
 
 
+class InstanceWrapper:
+
+    def __init__(self, instance, pos):
+        self.x = pos[0]
+        self.y = pos[1]
+        self.instance = instance
+
+    def get_pos(self):
+        return (self.x, self.y)
+
+
 phase = Phase.BUILD
 
-tokens = [Player(), Platform(-800, 650, 300, 200), Platform(-500, 700, 64, 64), Platform(-436, 700, 64, 64),
-          Platform(-372, 700, 64, 64), Platform(-308, 700, 64, 64), Platform(-244, 764, 64, 64),
-          Platform(-180, 828, 64, 64), Platform(-116, 828, 64, 64), Platform(-52, 828, 64, 64),
-          Platform(12, 828, 64, 64), Platform(76, 828, 64, 64), Platform(140, 828, 64, 64),
-          Platform(204, 828, 64, 64), Platform(264, 828, 1536, 64), Platform(1600, 810, 300, 200)]
+tokens = []
 
 camera_scroll_speed = 1
 half_camera_boundry = 200
@@ -62,7 +70,7 @@ class AnimationAssetAdapter:
 slot_height = 64
 slot_count = 20
 horizontal_snap_points = 8
-build_countdown_seconds = 30
+build_countdown_seconds = 10
 show_rocket_debug = True
 
 assets = AnimationAssetAdapter(loader)
@@ -76,9 +84,12 @@ build_area = BuildArea(
     horizontal_snap_points=horizontal_snap_points,
 )
 
+flight_parts = []
+V = 0
+
 
 def start_flight():
-    global phase
+    global phase, V
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -88,6 +99,12 @@ def start_flight():
     # TODO: feed rocket stats into the Player token here — this is where
     # total_thrust / total_weight / fuel_remaining should start driving
     # token.velocity.y once real flight physics are built.
+    for instance in build_scene.rocket.parts:
+        pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
+        flight_parts.append(InstanceWrapper(instance, pos))
+        T = instance.part_def.thrust
+        W = instance.part_def.weight
+        V += T / W
 
 
 build_scene = BuildScene(
@@ -165,20 +182,11 @@ def frame():
         build_scene.draw(screen)
 
     elif phase == Phase.FLIGHT:
-        for token in tokens:
-            token.update(dt)
-
-        handle_camera()
-
-        for token in tokens:
-            move(token)
-
-        for token in tokens:
-            token.render(screen)
-
-        for token in reversed(tokens):
-            if token.is_dead():
-                tokens.remove(token)
+        # Draw Rocket
+        for instance in flight_parts:
+            image = build_scene.assets.get_image(instance.instance.part_def.sprite)
+            instance.y -= V*dt
+            screen.blit(image, image.get_rect(center=instance.get_pos()))
 
     if exit_button.update() == "Pressed":
         return False
