@@ -110,9 +110,7 @@ def start_flight():
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
-        T = instance.part_def.thrust
-        W = instance.part_def.weight
-        V += T / W
+        V = rocket.performance
     rocket.velocity = V
 
 

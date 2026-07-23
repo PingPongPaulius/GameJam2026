@@ -1,46 +1,138 @@
 {
     "parts": [
+
+
+
       {
-        "id": "engine_basic",
-        "name": "Basic Engine",
-        "part_type": "ENGINE",
-        "weight": 4.0,
-        "thrust": 120.0,
-        "heat_dissipation": 0.5,
-        "sprite": "engine_basic.png"
+        "id": "carbon_needle_nose_cone",
+        "name": "Carbon Needle Nose Cone",
+        "part_type": "NOSE_CONE",
+        "weight": 3,
+        "drag": -12.0,
+        "sprite": "nosecone_basic.png"
       },
       {
-        "id": "engine_basic_2",
-        "name": "Basic Engine 2",
-        "part_type": "ENGINE",
-        "weight": 4.0,
-        "thrust": 120.0,
-        "heat_dissipation": 0.5,
-        "sprite": "engine_basic.png"
+        "id": "standard_nose_cone",
+        "name": "Standard Nose Cone",
+        "part_type": "NOSE_CONE",
+        "weight": 5,
+        "drag": -8.0,
+        "sprite": "nosecone_basic.png"
       },
       {
-        "id": "fueltank_basic",
-        "name": "Basic Fuel Tank",
+        "id": "blunt_nose_cone",
+        "name": "Blunt Nose Cone",
+        "part_type": "NOSE_CONE",
+        "weight":8,
+        "drag": -3.0,
+        "sprite": "nosecone_basic.png"
+      },
+
+
+
+      {
+        "id": "compact_fuel_tank",
+        "name": "Compact Fuel Tank",
         "part_type": "FUEL_TANK",
-        "weight": 3.0,
-        "fuel_capacity": 50.0,
+        "weight": 12.0,
+        "drag": 2.0,
+        "fuel_capacity": 100.0,
         "stability_contribution": 0.5,
         "sprite": "fueltank_basic.png"
       },
       {
-        "id": "nosecone_basic",
-        "name": "Basic Nose Cone",
-        "part_type": "NOSE_CONE",
-        "weight": 1.5,
-        "stability_contribution": 3.0,
-        "sprite": "nosecone_basic.png"
+        "id": "extended_fuel_tank",
+        "name": "Extended Fuel Tank",
+        "part_type": "FUEL_TANK",
+        "weight": 22.0,
+        "drag": 3.0,
+        "fuel_capacity": 190.0,
+        "stability_contribution": 0.5,
+        "sprite": "fueltank_basic.png"
       },
       {
-        "id": "fin_basic",
-        "name": "Basic Fin",
+        "id": "cryogenic_fuel_tank",
+        "name": "Cryogenic Fuel Tank",
+        "part_type": "FUEL_TANK",
+        "weight": 18.0,
+        "drag": 2.0,
+        "fuel_capacity": 160.0,
+        "stability_contribution": 0.5,
+        "sprite": "fueltank_basic.png"
+      },
+
+
+
+      {
+        "id": "small_efficient_engine",
+        "name": "Small Efficient Engine",
+        "part_type": "ENGINE",
+        "weight": 14.0,
+        "drag": 2.0,
+        "thrust": 170.0,
+        "heat_dissipation": 0.5,
+        "sprite": "engine_basic.png"
+      },
+      {
+        "id": "medium_engine",
+        "name": "Medium Engine",
+        "part_type": "ENGINE",
+        "weight": 23.0,
+        "drag": 3.0,
+        "thrust": 280.0,
+        "heat_dissipation": 0.5,
+        "sprite": "engine_basic.png"
+      },
+      {
+        "id": "heavy_booster_engine",
+        "name": "Heavy Booster Engine",
+        "part_type": "ENGINE",
+        "weight": 38.0,
+        "drag": 6.0,
+        "thrust": 520.0,
+        "heat_dissipation": 0.5,
+        "sprite": "engine_basic.png"
+      },
+      {
+        "id": "vacuum_engine",
+        "name": "Vacuum Engine",
+        "part_type": "ENGINE",
+        "weight": 18.0,
+        "drag": 2.0,
+        "thrust": 220.0,
+        "heat_dissipation": 0.5,
+        "sprite": "engine_basic.png"
+      },
+      {
+        "id": "vector_engine",
+        "name": "Vector Engine",
+        "part_type": "ENGINE",
+        "weight": 26.0,
+        "drag": 4.0,
+        "thrust": 310.0,
+        "heat_dissipation": 0.5,
+        "sprite": "engine_basic.png"
+      },
+
+
+
+      {
+        "id": "small_stabilizer_fins",
+        "name": "Small Stabilizer Fins",
         "part_type": "FIN",
-        "weight": 1.0,
+        "weight": 3.0,
+        "drag": -21.0,
         "stability_contribution": 2.0,
+        "sprite": "fin_basic.png"
+      },
+
+      {
+        "id": "large_stabilizer_fins",
+        "name": "Large Stabilizer Fins",
+        "part_type": "FIN",
+        "weight": 9.0,
+        "drag": 4.0,
+        "stability_contribution": 5.0,
         "sprite": "fin_basic.png"
       }
     ]

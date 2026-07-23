@@ -1,3 +1,4 @@
+import math
 from rocket.part_types import PartType
 from rocket.pilot import Pilot
 from rocket.part_instance import PartInstance
@@ -12,6 +13,7 @@ class Rocket:
         self.rotation = 0.0
         self.heat = 0.0
         self.fuel_remaining = 0.0
+        self.fuel_weight_per_unit = 0.01
 
     def add_part(self, part: PartInstance):
         self.parts.append(part)
@@ -38,6 +40,11 @@ class Rocket:
     @property
     def total_thrust(self) -> float:
         return sum(p.part_def.thrust for p in self.parts)
+
+    @property
+    def total_drag(self) -> float:
+        return sum(p.part_def.drag for p in self.parts)
+
     @property
     def total_fuel_capacity(self) -> float:
         return sum(p.part_def.fuel_capacity for p in self.parts)
@@ -98,6 +105,33 @@ class Rocket:
     def fuel_consumption_rate(self) -> float:
         base_rate = self.total_thrust * 0.05
         return base_rate * self.pilot.attributes.fuel_consumption
+
+    @property
+    def fuel_weight(self) -> float:
+        return self.total_fuel_capacity * self.fuel_weight_per_unit
+
+    @property
+    def power(self) -> float:
+        # Yes, it has a magic number, what does it mean? Yes.
+        return math.sqrt(self.total_thrust) * 250.0;
+
+    @property
+    def mass(self) -> float:
+        return self.total_weight + self.fuel_weight
+
+    @property
+    def aerodynamics(self) -> float:
+        # Oh no, another magic number! Maybe I should just do this in the physics engine?
+        return max(0.4, 1 - self.total_drag / 100)
+
+    @property
+    def fuel_bonus(self) -> float:
+        # Oh no, another magic number! Maybe I should just do this in the physics engine?
+        return 1 + (self.total_fuel_capacity / 250)
+
+    @property
+    def performance(self) -> float:
+        return (self.power * self.aerodynamics * self.fuel_bonus) / self.mass
 
     def validate(self) -> list[str]:
         errors = []
