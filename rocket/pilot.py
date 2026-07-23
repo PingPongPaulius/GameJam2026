@@ -8,3 +8,4 @@ class PilotAttributes:
 class Pilot:
     name: str
     attributes: PilotAttributes = field(default_factory=PilotAttributes)
+    portrait_sprite: str = "pilots/pilot-1.gif"

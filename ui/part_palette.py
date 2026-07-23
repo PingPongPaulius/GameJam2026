@@ -50,6 +50,8 @@ class PartPalette:
         padding=PADDING,
         parts_per_row=PARTS_PER_ROW,
         background_padding=BACKGROUND_PADDING,
+        content_rect=None,
+        draw_background=True,
     ):
         self.assets = assets
         self.items = []
@@ -57,16 +59,46 @@ class PartPalette:
         self.hovered_item = None
         self.parts_per_row = max(1, parts_per_row)
         self.background_padding = background_padding
+        self.draw_background = draw_background
+        self.content_rect = content_rect
         self.background_rect = pygame.Rect(top_left, (0, 0))
         self._title_font = pygame.font.SysFont(None, 28)
         self._section_font = pygame.font.SysFont(None, 24)
         self._label_font = pygame.font.SysFont(None, 22)
         self._value_font = pygame.font.SysFont(None, 22)
 
-        self._build_sections(part_defs, top_left, item_size, padding)
+        if content_rect is not None:
+            item_size, padding, parts_per_row = self._fit_layout(
+                part_defs,
+                content_rect,
+                item_size,
+                padding,
+                parts_per_row,
+            )
+            self.parts_per_row = parts_per_row
+            self._build_sections(part_defs, content_rect.topleft, item_size, padding)
+        else:
+            self._build_sections(part_defs, top_left, item_size, padding)
 
-        if self.items:
+        if self.items and self.draw_background:
             self.background_rect = self._compute_background_rect()
+
+    def _fit_layout(self, part_defs, content_rect, item_size, padding, parts_per_row):
+        grouped = self._group_part_defs(part_defs)
+        for size in (64, 56, 48, 40):
+            for columns in (3, 2, 1):
+                if self._layout_fits(grouped, content_rect, (size, size), padding, columns):
+                    return (size, size), padding, columns
+        return item_size, padding, 1
+
+    def _layout_fits(self, grouped, content_rect, item_size, padding, parts_per_row):
+        _, h = item_size
+        y = content_rect.y
+        for _, defs in grouped:
+            y += self.SECTION_HEADER_HEIGHT + padding // 2
+            row_count = (len(defs) + parts_per_row - 1) // parts_per_row
+            y += row_count * h + max(0, row_count - 1) * padding + self.SECTION_GAP
+        return y <= content_rect.bottom
 
     def _group_part_defs(self, part_defs) -> list[tuple[PartType, list[PartDef]]]:
         grouped = defaultdict(list)
@@ -87,6 +119,9 @@ class PartPalette:
         w, h = item_size
         y = origin_y
         grid_width = self.parts_per_row * w + (self.parts_per_row - 1) * padding
+
+        if self.content_rect is not None:
+            origin_x = self.content_rect.x + (self.content_rect.width - grid_width) // 2
 
         for part_type, defs in self._group_part_defs(part_defs):
             title = self._format_part_type(part_type)
@@ -150,7 +185,8 @@ class PartPalette:
             )
 
     def draw(self, surface):
-        self._draw_background(surface)
+        if self.draw_background:
+            self._draw_background(surface)
         self._draw_sections(surface)
         for item in self.items:
             image = self.assets.get_image(item.part_def.sprite)

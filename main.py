@@ -13,7 +13,7 @@ from rocket.part_data import PART_CATALOG
 from rocket.pilot import Pilot, PilotAttributes
 from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
-from ui.part_palette import PartPalette
+from ui.build_sidebar import BuildSidebar
 from ui.rocket_debug_panel import RocketDebugPanel
 from scenes.build_scene import BuildScene
 from rendering.rocket_renderer import draw_rocket
@@ -82,14 +82,23 @@ show_rocket_debug = True
 enable_snap_draws = False
 
 assets = AnimationAssetAdapter(loader)
-pilot = Pilot(name="Player One", attributes=PilotAttributes(fuel_consumption=1.0))
+pilot = Pilot(
+    name="Pepe the Pilot", 
+    attributes=PilotAttributes(fuel_consumption=1.0),
+    portrait_sprite="pilots/pilot-1.gif",
+)
 rocket = Rocket(pilot)
-palette = PartPalette(
+sidebar = BuildSidebar(
+    pilot,
     list(PART_CATALOG.values()),
     assets,
+    SCREEN_HEIGHT,
 )
 build_area = BuildArea(
-    anchor_pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT - slot_height // 2 - 24),
+    anchor_pos=(
+        sidebar.width + (SCREEN_WIDTH - sidebar.width) / 2,
+        SCREEN_HEIGHT - slot_height // 2 - 24,
+    ),
     slot_height=slot_height,
     slot_count=slot_count,
     horizontal_snap_points=horizontal_snap_points,
@@ -165,7 +174,7 @@ def start_flight():
 
 build_scene = BuildScene(
     rocket=rocket,
-    palette=palette,
+    sidebar=sidebar,
     build_area=build_area,
     assets=assets,
     countdown_seconds=build_countdown_seconds,

@@ -7,10 +7,10 @@ SIDE_MOUNT_TYPES = {PartType.FIN, PartType.BOOSTER}
 COUNTDOWN_SECONDS = 30
 
 class BuildScene:
-    def __init__(self, rocket, palette, build_area, assets, audio=None,
+    def __init__(self, rocket, sidebar, build_area, assets, audio=None,
                  countdown_seconds=COUNTDOWN_SECONDS, on_timeout=None):
         self.rocket = rocket
-        self.palette = palette
+        self.sidebar = sidebar
         self.build_area = build_area
         self.assets = assets
         self.audio = audio
@@ -21,7 +21,7 @@ class BuildScene:
 
     def handle_event(self, event): 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            item = self.palette.item_at(event.pos)
+            item = self.sidebar.item_at(event.pos)
             if item:
                 self.drag.start(item.part_def, event.pos)
 
@@ -89,11 +89,11 @@ class BuildScene:
     def draw(self, surface):
         mouse_pos = pygame.mouse.get_pos()
         if not self.drag.active:
-            self.palette.update_hover(mouse_pos)
+            self.sidebar.update_hover(mouse_pos)
         else:
-            self.palette.hovered_item = None
+            self.sidebar.palette.hovered_item = None
 
-        self.palette.draw(surface)
+        self.sidebar.draw(surface)
         self.build_area.draw(surface)
         for instance in self.rocket.parts:
             pos = self.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
@@ -120,8 +120,9 @@ class BuildScene:
         font = pygame.font.SysFont(None, 36)
         timer_surf = font.render(f"{self.time_remaining:0.1f}s", True, (255, 255, 255))
         stability_surf = font.render(f"Stability: {self.rocket.stability:.1f}", True, (255, 255, 255))
-        surface.blit(timer_surf, (surface.get_width() // 2 - 30, 20))
-        surface.blit(stability_surf, (surface.get_width() // 2 - 70, 55))
+        center_x = self.sidebar.width + (surface.get_width() - self.sidebar.width) // 2
+        surface.blit(timer_surf, (center_x - 30, 20))
+        surface.blit(stability_surf, (center_x - 70, 55))
 
         if not self.drag.active:
-            self.palette.draw_tooltip(surface)
+            self.sidebar.draw_tooltip(surface)
