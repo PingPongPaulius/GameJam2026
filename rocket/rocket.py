@@ -111,4 +111,9 @@ class Rocket:
 
     def is_launch_ready(self) -> bool:
         return len(self.validate()) == 0
-                    
+    
+
+    def render(self, surface, assets, pos):
+        for instance in self.parts:
+            image = assets.get_image(instance.part_def.sprite)
+            surface.blit(image, image.get_rect(center=pos))
