@@ -75,7 +75,7 @@ slot_count = 20
 horizontal_snap_points = 8
 
 # Countdown for the launch
-build_countdown_seconds = 10
+build_countdown_seconds = 30
 
 # Debug options
 show_rocket_debug = True
@@ -157,6 +157,8 @@ def start_flight():
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
+    # This is now using Kot's calculations from the Canva.
+    # It can be found in rocket.py, lines 111-138.
     V = rocket.performance
     rocket.velocity = V
 
