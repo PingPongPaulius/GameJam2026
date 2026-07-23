@@ -1,0 +1,38 @@
+{
+    "parts": [
+      {
+        "id": "engine_basic",
+        "name": "Basic Engine",
+        "part_type": "ENGINE",
+        "weight": 4.0,
+        "thrust": 120.0,
+        "heat_dissipation": 0.5,
+        "sprite": "engine_basic.png"
+      },
+      {
+        "id": "fueltank_basic",
+        "name": "Basic Fuel Tank",
+        "part_type": "FUEL_TANK",
+        "weight": 3.0,
+        "fuel_capacity": 50.0,
+        "stability_contribution": 0.5,
+        "sprite": "fueltank_basic.png"
+      },
+      {
+        "id": "nosecone_basic",
+        "name": "Basic Nose Cone",
+        "part_type": "NOSE_CONE",
+        "weight": 1.5,
+        "stability_contribution": 3.0,
+        "sprite": "nosecone_basic.png"
+      },
+      {
+        "id": "fin_basic",
+        "name": "Basic Fin",
+        "part_type": "FIN",
+        "weight": 1.0,
+        "stability_contribution": 2.0,
+        "sprite": "fin_basic.png"
+      }
+    ]
+  }
