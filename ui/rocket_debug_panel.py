@@ -16,6 +16,7 @@ class RocketDebugPanel:
             ("Parts", str(len(rocket.parts))),
             ("Weight", f"{rocket.total_weight:.1f}"),
             ("Thrust", f"{rocket.total_thrust:.0f}"),
+            ("Velocity", f"{rocket.velocity:.1f}"),
             ("Fuel", f"{rocket.total_fuel_capacity:.0f}"),
             ("Heat diss.", f"{rocket.total_heat_dissipation:.1f}"),
             ("Stability", f"{rocket.stability:.1f}"),

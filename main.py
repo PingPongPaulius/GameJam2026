@@ -92,25 +92,28 @@ build_area = BuildArea(
 
 flight_parts = []
 V = 0
+camera_scroll_y = 0
+_background_cache = {}
 
 
 def start_flight():
-    global phase, V
+    global phase, V, camera_scroll_y
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
     print(f"Launch! thrust={rocket.total_thrust:.0f} weight={rocket.total_weight:.0f} "
           f"stability={rocket.stability:.1f} fuel={rocket.total_fuel_capacity:.0f}")
     phase = Phase.FLIGHT
-    # TODO: feed rocket stats into the Player token here — this is where
-    # total_thrust / total_weight / fuel_remaining should start driving
-    # token.velocity.y once real flight physics are built.
+    flight_parts.clear()
+    camera_scroll_y = 0
+    V = 0
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         T = instance.part_def.thrust
         W = instance.part_def.weight
         V += T / W
+    rocket.velocity = V
 
 
 build_scene = BuildScene(
@@ -160,17 +163,39 @@ def find_player() -> Optional[Player]:
             return token
     return None
 
+def _get_background(path: str):
+    if path not in _background_cache:
+        _background_cache[path] = pygame.image.load(path).convert()
+    return _background_cache[path]
+
+
 def handle_background(phase):
     if phase == Phase.BUILD:
-        background_image = pygame.image.load("Sprites/Background_Slice_1.png")
+        background_image = _get_background("Sprites/Background_Slice_1.png")
         screen.blit(background_image, (0, 0))
-        screen.blit(background_image, (SCREEN_WIDTH/2, 0))
+        screen.blit(background_image, (SCREEN_WIDTH / 2, 0))
     elif phase == Phase.FLIGHT:
-        background_image = pygame.image.load("Sprites/Background_Slice_2.png")
-        screen.blit(background_image, (0, 0))
-        screen.blit(background_image, (SCREEN_WIDTH/2, 0))
+        background_image = _get_background("Sprites/Background_Slice_2.png")
+        scroll_y = int(camera_scroll_y) % background_image.get_height()
+        for tile_y in range(scroll_y - background_image.get_height(), SCREEN_HEIGHT, background_image.get_height()):
+            screen.blit(background_image, (0, tile_y))
+            screen.blit(background_image, (SCREEN_WIDTH / 2, tile_y))
+
 
 def handle_camera():
+    global camera_scroll_y
+
+    if phase == Phase.FLIGHT:
+        if not flight_parts:
+            return
+        center_y = sum(part.y for part in flight_parts) / len(flight_parts)
+        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry:
+            scroll = (V - camera_scroll_speed) * dt
+            for part in flight_parts:
+                part.y += scroll
+            camera_scroll_y += scroll
+        return
+
     player = find_player()
     if not player:
         return
@@ -198,10 +223,12 @@ def frame():
         build_scene.draw(screen)
 
     elif phase == Phase.FLIGHT:
-        # Draw Rocket
+        handle_background(phase)
+        for instance in flight_parts:
+            instance.y -= V * dt
+        handle_camera()
         for instance in flight_parts:
             image = build_scene.assets.get_image(instance.instance.part_def.sprite)
-            instance.y -= V*dt
             screen.blit(image, image.get_rect(center=instance.get_pos()))
 
     if exit_button.update() == "Pressed":
