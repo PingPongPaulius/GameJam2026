@@ -2,7 +2,6 @@ import math
 
 import pygame
 
-
 class BuildArea:
     """Defines the vertical stack slots the rocket is assembled into."""
     def __init__(
@@ -15,6 +14,7 @@ class BuildArea:
         horizontal_snap_span=None,
         horizontal_snap_step_size=None,
         side_attach_offset=None,
+        enable_snap_draws=False,
     ):
         self.anchor_x, self.anchor_y = anchor_pos
         self.slot_height = slot_height
@@ -28,6 +28,7 @@ class BuildArea:
             else step_size * (self.horizontal_snap_points - 1)
         )
         self.side_attach_offset = side_attach_offset or slot_height * 0.6
+        self.enable_snap_draws = enable_snap_draws
 
     def horizontal_snap_step(self) -> float:
         if self.horizontal_snap_points <= 1:
@@ -90,16 +91,18 @@ class BuildArea:
             for offset_x in self._center_offset_values():
                 x, sub_y = self.slot_screen_pos(slot, offset_x)
                 color = (120, 130, 150) if offset_x == 0.0 else (75, 82, 96)
-                pygame.draw.circle(surface, color, (int(x), int(sub_y)), 3)
+                if self.enable_snap_draws:
+                    pygame.draw.circle(surface, color, (int(x), int(sub_y)), 3)
 
             for side in (-1, 1):
                 x, side_y = self.slot_screen_pos(slot, side * self.side_attach_offset)
-                pygame.draw.rect(
-                    surface,
-                    (100, 160, 100),
-                    pygame.Rect(int(x) - 4, int(side_y) - 4, 8, 8),
-                    1,
-                )
+                if self.enable_snap_draws:
+                    pygame.draw.rect(
+                        surface,
+                        (100, 160, 100),
+                        pygame.Rect(int(x) - 4, int(side_y) - 4, 8, 8),
+                        1,
+                    )
 
     def snap_offsets_adjacent(self, offset_a, offset_b) -> bool:
         if abs(offset_a - offset_b) < 0.01:

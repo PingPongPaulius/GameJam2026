@@ -18,6 +18,7 @@ from scenes.build_scene import BuildScene
 pygame.init()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
+
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 FPS = 60
@@ -64,16 +65,21 @@ slot_count = 20
 horizontal_snap_points = 8
 build_countdown_seconds = 30
 show_rocket_debug = True
+enable_snap_draws = False
 
 assets = AnimationAssetAdapter(loader)
 pilot = Pilot(name="Player One", attributes=PilotAttributes(fuel_consumption=1.0))
 rocket = Rocket(pilot)
-palette = PartPalette(list(PART_CATALOG.values()), assets)
+palette = PartPalette(
+    list(PART_CATALOG.values()),
+    assets,
+)
 build_area = BuildArea(
     anchor_pos=(SCREEN_WIDTH / 2, SCREEN_HEIGHT - slot_height // 2 - 24),
     slot_height=slot_height,
     slot_count=slot_count,
     horizontal_snap_points=horizontal_snap_points,
+    enable_snap_draws=enable_snap_draws,
 )
 
 
@@ -137,6 +143,15 @@ def find_player() -> Optional[Player]:
             return token
     return None
 
+def handle_background(phase):
+    if phase == Phase.BUILD:
+        background_image = pygame.image.load("Sprites/Background_Slice_1.png")
+        screen.blit(background_image, (0, 0))
+        screen.blit(background_image, (SCREEN_WIDTH/2, 0))
+    elif phase == Phase.FLIGHT:
+        background_image = pygame.image.load("Sprites/Background_Slice_2.png")
+        screen.blit(background_image, (0, 0))
+        screen.blit(background_image, (SCREEN_WIDTH/2, 0))
 
 def handle_camera():
     player = find_player()
@@ -161,6 +176,7 @@ def frame():
     screen.fill("gray")
 
     if phase == Phase.BUILD:
+        handle_background(phase)
         build_scene.update(dt)
         build_scene.draw(screen)
 

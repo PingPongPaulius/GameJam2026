@@ -7,3 +7,4 @@ class PartType(Enum):
     FIN = auto()
     BOOSTER = auto()
     PARACHUTE = auto()
+    PAYLOAD = auto()

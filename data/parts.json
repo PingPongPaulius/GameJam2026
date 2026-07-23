@@ -10,6 +10,15 @@
         "sprite": "engine_basic.png"
       },
       {
+        "id": "engine_basic_2",
+        "name": "Basic Engine 2",
+        "part_type": "ENGINE",
+        "weight": 4.0,
+        "thrust": 120.0,
+        "heat_dissipation": 0.5,
+        "sprite": "engine_basic.png"
+      },
+      {
         "id": "fueltank_basic",
         "name": "Basic Fuel Tank",
         "part_type": "FUEL_TANK",
