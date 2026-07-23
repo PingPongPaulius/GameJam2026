@@ -1,3 +1,5 @@
+import glob
+import re
 from typing import Optional
 from enum import Enum, auto
 
@@ -94,6 +96,28 @@ flight_parts = []
 V = 0
 camera_scroll_y = 0
 _background_cache = {}
+_background_slices = []
+
+
+def _load_background_slices():
+    pattern = re.compile(r"Background_Slice_(\d+)\.png$")
+    numbered = []
+    for path in glob.glob("Sprites/Background_Slice_*.png"):
+        match = pattern.search(path.replace("\\", "/"))
+        if match:
+            numbered.append((int(match.group(1)), path))
+    numbered.sort(key=lambda item: item[0])
+    return [_get_background(path) for _, path in numbered]
+
+
+def _background_stack_height() -> int:
+    if not _background_slices:
+        return 0
+    return len(_background_slices) * _background_slices[0].get_height()
+
+
+def _max_scroll() -> int:
+    return max(0, _background_stack_height() - SCREEN_HEIGHT)
 
 
 def start_flight():
@@ -167,17 +191,20 @@ def _get_background(path: str):
     return _background_cache[path]
 
 
-def handle_background(phase):
-    if phase == Phase.BUILD:
-        background_image = _get_background("Sprites/Background_Slice_1.png")
-        screen.blit(background_image, (0, 0))
-        screen.blit(background_image, (SCREEN_WIDTH / 2, 0))
-    elif phase == Phase.FLIGHT:
-        background_image = _get_background("Sprites/Background_Slice_2.png")
-        scroll_y = int(camera_scroll_y) % background_image.get_height()
-        for tile_y in range(scroll_y - background_image.get_height(), SCREEN_HEIGHT, background_image.get_height()):
-            screen.blit(background_image, (0, tile_y))
-            screen.blit(background_image, (SCREEN_WIDTH / 2, tile_y))
+def handle_background(scroll_y: float = 0):
+    if not _background_slices:
+        return
+
+    slice_height = _background_slices[0].get_height()
+    scroll_offset = min(max(0, int(scroll_y)), _max_scroll())
+    stack_bottom = SCREEN_HEIGHT + scroll_offset
+
+    for index, slice_image in enumerate(_background_slices):
+        y = stack_bottom - (index + 1) * slice_height
+        if y + slice_height < 0 or y > SCREEN_HEIGHT:
+            continue
+        screen.blit(slice_image, (0, y))
+        screen.blit(slice_image, (SCREEN_WIDTH / 2, y))
 
 
 def handle_camera():
@@ -191,7 +218,7 @@ def handle_camera():
             scroll = (V - camera_scroll_speed) * dt
             for part in flight_parts:
                 part.y += scroll
-            camera_scroll_y += scroll
+            camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
         return
 
     player = find_player()
@@ -216,15 +243,15 @@ def frame():
     screen.fill("gray")
 
     if phase == Phase.BUILD:
-        handle_background(phase)
+        handle_background()
         build_scene.update(dt)
         build_scene.draw(screen)
 
     elif phase == Phase.FLIGHT:
-        handle_background(phase)
         for instance in flight_parts:
             instance.y -= V * dt
         handle_camera()
+        handle_background(camera_scroll_y)
         for instance in flight_parts:
             image = build_scene.assets.get_image(instance.instance.part_def.sprite)
             screen.blit(image, image.get_rect(center=instance.get_pos()))
@@ -242,6 +269,7 @@ def frame():
 
 
 if __name__ == "__main__":
+    _background_slices.extend(_load_background_slices())
     running = True
     while running:
         running = frame()
