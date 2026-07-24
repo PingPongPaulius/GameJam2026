@@ -143,6 +143,9 @@ rocket_center_x = 0.0
 rocket_center_y = 0.0
 max_height = 0.0
 max_speed = 0.0
+SCORE_SUBMIT_DELAY = 3.0
+score_submit_timer = 0.0
+awaiting_score_submit = False
 _background_cache = {}
 _background_slices = []
 
@@ -173,8 +176,28 @@ def rotated_offset(dx: float, dy: float, angle: float) -> tuple:
     return dx * cos_a - dy * sin_a, dx * sin_a + dy * cos_a
 
 
+def _show_score_overlay():
+    global phase, score_submit_timer, awaiting_score_submit
+    score_submit_timer = 0.0
+    awaiting_score_submit = False
+    phase = Phase.RESULTS
+    score_overlay.show(max_height, max_speed)
+
+
 def update_flight(dt: float):
     global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase
+    global score_submit_timer, awaiting_score_submit
+
+    # Hold the rocket still while waiting to open the score overlay.
+    if awaiting_score_submit:
+        rocket.y_velocity = 0.0
+        rocket.x_velocity = 0.0
+        rocket.velocity = 0.0
+        rocket.height = 0.0
+        score_submit_timer += dt
+        if score_submit_timer >= SCORE_SUBMIT_DELAY:
+            _show_score_overlay()
+        return
 
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
@@ -242,16 +265,37 @@ def update_flight(dt: float):
     UP = rocket.y_velocity
 
     # Flight ends once the rocket has left the ground and then lands again.
-    if previous_height > 1.0 and rocket.height <= 0.0 and rocket.y_velocity <= 0.0:
+    landed = previous_height > 1.0 and rocket.height <= 0.0 and rocket.y_velocity <= 0.0
+    if landed:
         rocket.y_velocity = 0.0
         rocket.x_velocity = 0.0
         rocket.velocity = 0.0
-        phase = Phase.RESULTS
-        score_overlay.show(max_height, max_speed)
+        if rocket.fuel_remaining <= 0:
+            _show_score_overlay()
+            return
+
+    # Score submit opens 3s after velocity is ~0 with fuel remaining.
+    settled = (
+        max_height > 1.0
+        and rocket.velocity <= 0.05
+        and rocket.fuel_remaining > 0
+    )
+    if settled:
+        if rocket.height <= 0.0:
+            awaiting_score_submit = True
+            rocket.y_velocity = 0.0
+            rocket.x_velocity = 0.0
+            rocket.velocity = 0.0
+        score_submit_timer += dt
+        if score_submit_timer >= SCORE_SUBMIT_DELAY:
+            _show_score_overlay()
+    else:
+        score_submit_timer = 0.0
 
 
 def start_flight():
-    global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y, max_height, max_speed
+    global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
+    global max_height, max_speed, score_submit_timer, awaiting_score_submit
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -265,6 +309,8 @@ def start_flight():
     camera_scroll_y = 0
     max_height = 0.0
     max_speed = 0.0
+    score_submit_timer = 0.0
+    awaiting_score_submit = False
     V = 0
     W = 0
     rocket.height = 0.0
