@@ -18,8 +18,10 @@ class RocketDebugPanel:
             ("Thrust", f"{rocket.total_thrust:.0f}"),
             ("Drag", f"{rocket.total_drag:.0f}"),
             ("Performance", f"{rocket.performance:.1f}"),
-            ("Velocity", f"{rocket.velocity:.1f}"),
+            ("Velocity", f"{rocket.y_velocity:.1f}"),
             ("Height", f"{rocket.height:.0f}"),
+            ("xAcceleration", f"{rocket.x_acceleration:.1f}"),
+            ("yAcceleration", f"{rocket.y_acceleration:.1f}"),
             ("Acceleration", f"{rocket.acceleration:.1f}"),
             (
                 "Fuel",
@@ -31,6 +33,9 @@ class RocketDebugPanel:
         ]
         if rocket.parts:
             lines.append(("CoM slot", f"{rocket.center_of_mass_slot:.2f}"))
+            lines.append(("COG x", f"{rocket.COM_x:.1f}"))
+            lines.append(("COT x", f"{rocket.COT_x:.1f}"))
+            lines.append(("Inertia", f"{rocket.rotation_inertia:.0f}"))
         if in_flight:
             status = "Flying"
         else:

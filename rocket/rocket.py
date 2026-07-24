@@ -4,20 +4,33 @@ from rocket.pilot import Pilot
 from rocket.part_instance import PartInstance
 
 class Rocket:
+    VERTICAL_UNIT = 8.0  # physical distance per slot_index step, for COG/COT/inertia math only (not rendering)
+
     def __init__(self, pilot: Pilot):
         self.pilot = pilot
         self.parts: list[PartInstance] = []
 
         self.height = 0.0
-        self.velocity = 0.0
-        self.rotation = 0.0
+        self.x_velocity = 0.0
+        self.y_velocity = 0.0
+        self.rotation = 0.0 #0 to 2pi 0 being straight up, pi being upside down, 2pi being straight up again
         self.heat = 0.0
         self.fuel_remaining = 0.0
         self.fuel_weight_per_unit = 1.0  # in tons per ton of fuel in the tank
+        self.x_acceleration = 0.0
+        self.y_acceleration = 0.0
         self.acceleration = 0.0
+        self.rotation_speed = 0.0
+        self.rotation_acceleration = 0.0
+        self.rotation_damping = 0.0
+        self.rotation_inertia = 0.0
+        self.COM_x = 0.0
+        self.COT_x= 0.0
+        
 
     def add_part(self, part: PartInstance):
         self.parts.append(part)
+        print(f"Added part {part.part_def.name} at slot {part.slot_index} with xoffset {part.offset_x} slot index {part.slot_index}") #temp debug :)
 
     def remove_part(self, part: PartInstance):
         if part in self.parts:
@@ -31,8 +44,14 @@ class Rocket:
 
     def reset(self):
         self.parts.clear()
-        self.height = self.velocity = self.rotation = self.heat = 0.0
+        self.height = self.x_velocity = self.y_velocity = self.rotation = self.heat = 0.0
         self.fuel_remaining = 0.0
+
+    @property
+    def fuel_percentage(self) -> float:
+        if self.total_fuel_capacity <= 0:
+            return 0.0
+        return self.fuel_remaining / self.total_fuel_capacity
 
     @property  # in tons
     def total_weight(self) -> float:
@@ -107,6 +126,57 @@ class Rocket:
             return 0.0
         weighted = sum(p.slot_index * p.part_def.weight for p in self.parts)
         return weighted / self.total_weight
+
+    def _part_effective_mass(self, p: PartInstance) -> float:
+        total_capacity = self.total_fuel_capacity  # max tons across all tanks, not fuel_percentage
+        if total_capacity > 0 and p.part_def.fuel_capacity > 0:
+            share = p.part_def.fuel_capacity / total_capacity
+            return p.part_def.weight + self.fuel_weight * share
+        return p.part_def.weight
+
+    def _center_of_gravity_y_scaled(self) -> float:
+        total_mass = sum(self._part_effective_mass(p) for p in self.parts)
+        if total_mass <= 0:
+            return 0.0
+        return sum(
+            (p.slot_index * 64.0 / self.VERTICAL_UNIT) * self._part_effective_mass(p)
+            for p in self.parts
+        ) / total_mass
+
+    @property
+    def center_of_gravity_x(self) -> float:
+        if not self.parts:
+            return 0.0
+        total_mass = sum(self._part_effective_mass(p) for p in self.parts)
+        if total_mass <= 0:
+            return 0.0
+        return sum(
+            (p.offset_x / self.VERTICAL_UNIT) * self._part_effective_mass(p)
+            for p in self.parts
+        ) / total_mass
+
+    @property
+    def center_of_thrust_x(self) -> float:
+        total_thrust = sum(p.part_def.thrust for p in self.parts)
+        if total_thrust <= 0:
+            return 0.0
+        return sum(
+            (p.offset_x / self.VERTICAL_UNIT) * p.part_def.thrust for p in self.parts
+        ) / total_thrust
+
+    @property
+    def moment_of_inertia(self) -> float:
+        if not self.parts:
+            return 0.0
+        cog_x = self.center_of_gravity_x
+        cog_y = self._center_of_gravity_y_scaled()
+        total = 0.0
+        for p in self.parts:
+            mass = self._part_effective_mass(p)
+            dx = (p.offset_x / self.VERTICAL_UNIT) - cog_x
+            dy = (p.slot_index * 64.0 / self.VERTICAL_UNIT) - cog_y
+            total += mass * (dx * dx + dy * dy)
+        return total
 
     @property
     def fuel_consumption_rate(self) -> float:

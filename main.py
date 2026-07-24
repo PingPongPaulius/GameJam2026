@@ -1,3 +1,4 @@
+import math
 import glob
 import re
 import random as rng
@@ -5,6 +6,7 @@ from typing import Optional
 from enum import Enum, auto
 
 import pygame
+
 
 from Tokens.token import Token, Player, Platform
 from UI import Button
@@ -53,7 +55,9 @@ class InstanceWrapper:
         self.y = pos[1]
         self.instance = instance
         self.vector = Vector(self.x, self.y)
-        self.FALL_X = 0
+        # Offset from the rocket's center of mass, in the unrotated (rotation=0) build layout.
+        self.local_dx = 0.0
+        self.local_dy = 0.0
 
     def get_pos(self):
         return (self.x, self.y)
@@ -90,7 +94,7 @@ slot_count = 20
 horizontal_snap_points = 8
 
 # Countdown for the launch
-build_countdown_seconds = 10
+build_countdown_seconds = 20
 elapsed = 0.0
 _locked = False
 
@@ -135,6 +139,8 @@ V = 0
 W = 0
 UP = 0
 camera_scroll_y = 0
+rocket_center_x = 0.0
+rocket_center_y = 0.0
 max_height = 0.0
 max_speed = 0.0
 _background_cache = {}
@@ -161,36 +167,65 @@ def _load_background_slices():
     return [_get_background(path) for _, path in numbered]
 
 
+def rotated_offset(dx: float, dy: float, angle: float) -> tuple:
+    cos_a = math.cos(angle)
+    sin_a = math.sin(angle)
+    return dx * cos_a - dy * sin_a, dx * sin_a + dy * cos_a
+
+
 def update_flight(dt: float):
-    global V, UP, max_height, max_speed, phase
+    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase
 
     has_fuel = rocket.fuel_remaining > 0
-    drag_accel = (
-        -2e-5 * rocket.velocity ** 2 * rocket.total_drag
-        if rocket.velocity > 0
-        else 0.0
+    y_drag_accel = (
+        -2e-5 * rocket.y_velocity ** 2 * rocket.total_drag
     )
-    thrust_accel = (
-        rocket.total_thrust / rocket.mass
+    y_thrust_accel = (
+        (rocket.total_thrust * math.cos(rocket.rotation)) / rocket.mass
         if has_fuel and rocket.mass > 0
         else 0.0
     )
-    rocket.acceleration = drag_accel + thrust_accel - 9.81
+    x_drag_accel = (
+        -2e-5 * rocket.x_velocity ** 2 * rocket.total_drag
+    )
+    x_thrust_accel = (
+        (rocket.total_thrust * math.sin(rocket.rotation)) / rocket.mass
+        if has_fuel and rocket.mass > 0
+        else 0.0
+    )
 
-    rocket.velocity += rocket.acceleration * dt
-    height_delta = rocket.velocity * dt
-    previous_height = rocket.height
+    rocket.rotation_acceleration = (
+        (rocket.center_of_thrust_x - rocket.center_of_gravity_x) * rocket.total_thrust / rocket.moment_of_inertia
+        if has_fuel and rocket.moment_of_inertia > 0
+        else 0.0
+    )
+
+    rocket.rotation_speed += rocket.rotation_acceleration * dt
+    rocket.rotation += rocket.rotation_speed * dt
+    
+    rocket.y_acceleration = y_drag_accel + y_thrust_accel - 9.81
+    rocket.x_acceleration = x_drag_accel + x_thrust_accel
+
+    rocket.acceleration = math.sqrt(rocket.x_acceleration ** 2 + rocket.y_acceleration ** 2)
+
+    rocket.COM_x = rocket.center_of_gravity_x
+    rocket.COT_x = rocket.center_of_thrust_x
+    rocket.rotation_inertia = rocket.moment_of_inertia
+
+    land_hit = rocket.height <= 0 and rocket.y_velocity < 0
+
+    rocket.y_velocity += rocket.y_acceleration * dt if not land_hit else 0
+    rocket.x_velocity += rocket.x_acceleration * dt if not land_hit else 0
+
+    height_delta = rocket.y_velocity * dt
     rocket.height = max(0.0, rocket.height + height_delta)
 
     max_height = max(max_height, rocket.height)
     max_speed = max(max_speed, rocket.velocity)
+    x_delta = rocket.x_velocity * dt if not land_hit else 0.0
 
-    for instance in flight_parts:
-        instance.y -= height_delta
-        if rocket.velocity < 0:
-            if instance.FALL_X == 0:
-                instance.FALL_X = rng.random() - 0.5
-            instance.x += instance.FALL_X
+    rocket_center_y -= height_delta
+    rocket_center_x += x_delta
 
     if has_fuel:
         rocket.fuel_remaining = max(
@@ -201,8 +236,8 @@ def update_flight(dt: float):
 
     rocket.heat = max(0.0, rocket.heat - rocket.total_heat_dissipation * dt)
 
-    V = rocket.velocity
-    UP = rocket.velocity
+    V = rocket.y_velocity
+    UP = rocket.y_velocity
 
     # Flight ends once the rocket has left the ground and then lands again.
     if previous_height > 1.0 and rocket.height <= 0.0 and rocket.velocity <= 0.0:
@@ -212,7 +247,7 @@ def update_flight(dt: float):
 
 
 def start_flight():
-    global phase, V, W, camera_scroll_y, max_height, max_speed
+    global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y, max_height, max_speed
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -230,12 +265,31 @@ def start_flight():
     W = 0
     rocket.height = 0.0
     rocket.heat = 0.0
-    rocket.velocity = 0.0
+    rocket.y_velocity = 0.0
+    rocket.x_velocity = 0.0
+    rocket.rotation = 0.0
+    rocket.rotation_speed = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
+
+    total_weight = sum(instance.instance.part_def.weight for instance in flight_parts)
+    if total_weight > 0:
+        pivot_x = sum(instance.x * instance.instance.part_def.weight for instance in flight_parts) / total_weight
+        pivot_y = sum(instance.y * instance.instance.part_def.weight for instance in flight_parts) / total_weight
+    elif flight_parts:
+        pivot_x = sum(instance.x for instance in flight_parts) / len(flight_parts)
+        pivot_y = sum(instance.y for instance in flight_parts) / len(flight_parts)
+    else:
+        pivot_x = pivot_y = 0.0
+
+    rocket_center_x = pivot_x
+    rocket_center_y = pivot_y
+    for instance in flight_parts:
+        instance.local_dx = instance.x - pivot_x
+        instance.local_dy = instance.y - pivot_y
 
 
 build_scene = BuildScene(
@@ -279,6 +333,13 @@ def move(token):
                 token.hitbox.y = collision.hitbox.y + collision.hitbox.h
 
 
+def update_flight_part_positions():
+    for instance in flight_parts:
+        rot_dx, rot_dy = rotated_offset(instance.local_dx, instance.local_dy, rocket.rotation)
+        instance.x = rocket_center_x + rot_dx
+        instance.y = rocket_center_y + rot_dy
+
+
 def find_player() -> Optional[Player]:
     for token in tokens:
         if isinstance(token, Player):
@@ -320,21 +381,19 @@ def handle_background(scroll_y: float = 0):
 
 
 def handle_camera():
-    global camera_scroll_y
+    global camera_scroll_y, rocket_center_y
 
     if phase == Phase.FLIGHT:
         if not flight_parts:
             return
-        center_y = sum(part.y for part in flight_parts) / len(flight_parts)
-        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry and rocket.velocity > 0:
-            scroll = max(0.0, rocket.velocity - camera_scroll_speed) * dt
-            for part in flight_parts:
-                part.y += scroll
+        center_y = rocket_center_y
+        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry and rocket.y_velocity > 0:
+            scroll = max(0.0, rocket.y_velocity - camera_scroll_speed) * dt
+            rocket_center_y += scroll
             camera_scroll_y += scroll
-        elif rocket.velocity < 0:
-            scroll = min(0.0, rocket.velocity + camera_scroll_speed) * dt
-            for part in flight_parts:
-                part.y -= scroll
+        elif rocket.y_velocity < 0:
+            scroll = min(0.0, rocket.y_velocity + camera_scroll_speed) * dt
+            rocket_center_y -= scroll
             camera_scroll_y = max(0.0, camera_scroll_y - scroll)
         return
 
@@ -370,10 +429,13 @@ def frame():
         if phase == Phase.FLIGHT:
             update_flight(dt)
             handle_camera()
+        update_flight_part_positions()
         handle_background(camera_scroll_y)
+        rotation_degrees = -math.degrees(rocket.rotation)
         for instance in flight_parts:
             image = build_scene.assets.get_image(instance.instance.part_def.sprite)
-            screen.blit(image, image.get_rect(center=instance.get_pos()))
+            rotated_image = pygame.transform.rotate(image, rotation_degrees)
+            screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
         sidebar.draw(screen)
 
     if exit_button.update() == "Pressed":
