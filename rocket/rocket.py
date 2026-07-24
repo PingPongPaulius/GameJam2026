@@ -13,6 +13,7 @@ class Rocket:
         self.height = 0.0
         self.x_velocity = 0.0
         self.y_velocity = 0.0
+        self.velocity = 0.0
         self.rotation = 0.0 #0 to 2pi 0 being straight up, pi being upside down, 2pi being straight up again
         self.heat = 0.0
         self.fuel_remaining = 0.0

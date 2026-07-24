@@ -207,6 +207,7 @@ def update_flight(dt: float):
     rocket.x_acceleration = x_drag_accel + x_thrust_accel
 
     rocket.acceleration = math.sqrt(rocket.x_acceleration ** 2 + rocket.y_acceleration ** 2)
+    rocket.velocity = math.sqrt(rocket.x_velocity ** 2 + rocket.y_velocity ** 2)
 
     rocket.COM_x = rocket.center_of_gravity_x
     rocket.COT_x = rocket.center_of_thrust_x
