@@ -277,8 +277,14 @@ def handle_camera():
         if not flight_parts:
             return
         center_y = sum(part.y for part in flight_parts) / len(flight_parts)
-        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry:
+        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry and UP > 0:
             scroll = (V - camera_scroll_speed) * dt
+            for part in flight_parts:
+                part.y += scroll
+            camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
+        if UP < 0:
+            d = (W+FALL)
+            scroll = -(d - camera_scroll_speed) * dt
             for part in flight_parts:
                 part.y += scroll
             camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
