@@ -25,8 +25,10 @@ from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
 from rendering.rocket_renderer import draw_rocket
 from vector import Vector
+from manager.audio_manager import AudioManager
 
 pygame.init()
+audio_manager = AudioManager()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
 BG_COLOR = (20, 20, 20)
@@ -418,7 +420,7 @@ def handle_background(scroll_y: float = 0):
 
     slice_height = _background_slices[0].get_height()
     slice_width = _background_slices[0].get_width()
-    scroll_offset = max(0, int(scroll_y))
+    scroll_offset = max(0, int(scroll_y)) 
     stack_bottom = SCREEN_HEIGHT + scroll_offset
 
     # Draw enough vertical tiles to fill the screen. Past the authored stack,
@@ -503,6 +505,7 @@ def frame():
     elif phase in (Phase.FLIGHT, Phase.RESULTS):
         if phase == Phase.FLIGHT:
             update_flight(dt)
+            audio_manager.update_from_rocket(rocket, phase)
             handle_camera()
         update_flight_part_positions()
         handle_background(camera_scroll_y)
