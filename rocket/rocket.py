@@ -13,7 +13,7 @@ class Rocket:
         self.rotation = 0.0
         self.heat = 0.0
         self.fuel_remaining = 0.0
-        self.fuel_weight_per_unit = 0.01
+        self.fuel_weight_per_unit = 1.0  # in tons per ton of fuel in the tank
 
     def add_part(self, part: PartInstance):
         self.parts.append(part)
@@ -33,25 +33,30 @@ class Rocket:
         self.height = self.velocity = self.rotation = self.heat = 0.0
         self.fuel_remaining = 0.0
 
-    @property
+    @property # in tons
     def total_weight(self) -> float:
         return sum(p.part_def.weight for p in self.parts)
 
-    @property
+    @property # in kN
     def total_thrust(self) -> float:
-        return sum(p.part_def.thrust for p in self.parts)
+        return sum(p.part_def.thrust for p in self.parts) * self.fuel_remaining
 
     @property
     def total_drag(self) -> float:
         return sum(p.part_def.drag for p in self.parts)
 
-    @property
+    @property # in liters
     def total_fuel_capacity(self) -> float:
         return sum(p.part_def.fuel_capacity for p in self.parts)
 
     @property
     def total_heat_dissipation(self) -> float:
         return sum(p.part_def.heat_dissipation for p in self.parts)
+
+    @property
+    def total_fuel_consumption(self) -> float: #tons per second
+        self.fuel_cons_rate = sum(p.part_def.fuel_consumption for p in self.parts)
+        return self.fuel_cons_rate
 
     @property
     def stability(self) -> float:

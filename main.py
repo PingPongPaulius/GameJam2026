@@ -35,7 +35,7 @@ SCREEN_HEIGHT = int(desktop_h * 0.8)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 FPS = 60
-dt = 0
+dt = 1/FPS
 
 
 class Phase(Enum):
@@ -130,7 +130,7 @@ build_area = BuildArea(
 flight_parts = []
 V = 0
 W = 0
-A = 20
+A = 20 #this is the reson that height and velocity are increasing no matter what i think
 FALL = 0
 UP = 0
 camera_scroll_y = 0
@@ -152,7 +152,7 @@ def _load_background_slices():
 def _background_stack_height() -> int:
     if not _background_slices:
         return 0
-    return len(_background_slices) * _background_slices[0].get_height()
+    return len(_background_slices) * _background_slices[0].get_height() + 99999999999
 
 
 def _max_scroll() -> int:
@@ -160,19 +160,34 @@ def _max_scroll() -> int:
 
 
 def update_flight(dt: float):
-    global V, W, A, FALL, UP
-
-    if rocket.fuel_remaining > 0:
-        UP = V * dt
-    else:
-        UP = -(W+FALL) * dt
+    global UP
+    drag_decel = 2*10**(-5) * rocket.velocity**2 * -rocket.total_drag if rocket.velocity > 0 else 0
+    thrust_accel = rocket.total_thrust / rocket.mass if rocket.mass > 0 else 0
+    acceleration = drag_decel + thrust_accel
+    rocket.velocity += acceleration - 9.81 * dt #9.81 is the gravity constant, it is subtracted from the acceleration to simulate gravity
+    rocket.height += rocket.velocity * dt
 
     for instance in flight_parts:
-        instance.y -= UP
-        if UP < 0:
-            if instance.FALL_X == 0:
-                instance.FALL_X = rng.random()-0.5
-            instance.x += instance.FALL_X
+        instance.y -= rocket.height
+
+    rocket.fuel_remaining = max(0.0, rocket.fuel_remaining - rocket.total_fuel_consumption*dt)
+
+    print(acceleration, drag_decel, thrust_accel, rocket.velocity, rocket.height, rocket.fuel_remaining)
+
+    UP = rocket.height
+    # global V, W, A, FALL, UP
+
+    # if rocket.fuel_remaining > 0:
+    #     UP = V * dt
+    # else:
+    #     UP = -(W+FALL) * dt
+
+    # for instance in flight_parts:
+    #     instance.y -= UP
+    #     if UP < 0:
+    #         if instance.FALL_X == 0:
+    #             instance.FALL_X = rng.random()-0.5
+    #         instance.x += instance.FALL_X
 
     if rocket.fuel_remaining > 0:
         V += A
@@ -189,23 +204,19 @@ def update_flight(dt: float):
     else:
         rocket.height -= V * dt
 
-    if rocket.fuel_remaining > 0 and V > 0:
-        rocket.fuel_remaining = max(
-            0.0,
-            rocket.fuel_remaining - rocket.fuel_consumption_rate * dt,
-        )
-        rocket.heat += rocket.total_thrust * 0.01 * dt
+    # if rocket.fuel_remaining > 0 and V > 0:
+    #     rocket.fuel_remaining = max(
+    #         0.0,
+    #         rocket.fuel_remaining - rocket.fuel_consumption_rate * dt,
+    #     )
+    #     rocket.heat += rocket.total_thrust * 0.01 * dt
 
-    rocket.heat = max(0.0, rocket.heat - rocket.total_heat_dissipation * dt)
+    # rocket.heat = max(0.0, rocket.heat - rocket.total_heat_dissipation * dt)
 
 
 def start_flight():
     global phase, V, W, camera_scroll_y
     errors = rocket.validate()
-    if errors:
-        print("Launching anyway with issues:", errors)
-    print(f"Launch! thrust={rocket.total_thrust:.0f} weight={rocket.total_weight:.0f} "
-          f"stability={rocket.stability:.1f} fuel={rocket.total_fuel_capacity:.0f}")
     phase = Phase.FLIGHT
     flight_parts.clear()
     camera_scroll_y = 0
@@ -213,6 +224,7 @@ def start_flight():
     rocket.height = 0.0
     rocket.heat = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
+    
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
@@ -221,6 +233,10 @@ def start_flight():
     # It can be found in rocket.py, lines 111-138.
     V = rocket.performance
     rocket.velocity = V
+    if errors:
+        print("Launching anyway with issues:", errors)
+    print(f"Launch! thrust={rocket.total_thrust:.0f} weight={rocket.total_weight:.0f} "
+          f"stability={rocket.stability:.1f} fuel={rocket.total_fuel_capacity:.0f} fuel_consumption={rocket.total_fuel_consumption:.2f}")
 
 
 build_scene = BuildScene(
