@@ -1,6 +1,5 @@
 import glob
 import re
-import math
 import random as rng
 from typing import Optional
 from enum import Enum, auto
@@ -36,7 +35,7 @@ SCREEN_HEIGHT = int(desktop_h * 0.8)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 FPS = 60
-dt = 0
+dt = 1/FPS
 
 
 class Phase(Enum):
@@ -131,8 +130,6 @@ build_area = BuildArea(
 flight_parts = []
 V = 0
 W = 0
-A = 20
-FALL = 0
 UP = 0
 camera_scroll_y = 0
 _background_cache = {}
@@ -161,36 +158,33 @@ def _max_scroll() -> int:
 
 
 def update_flight(dt: float):
-    global V, W, A, FALL, UP
+    global V, UP
 
-    if rocket.fuel_remaining > 0:
-        UP = V * dt
-    else:
-        UP = -(W+FALL) * dt
+    has_fuel = rocket.fuel_remaining > 0
+    drag_accel = (
+        -2e-5 * rocket.velocity ** 2 * rocket.total_drag
+        if rocket.velocity > 0
+        else 0.0
+    )
+    thrust_accel = (
+        rocket.total_thrust / rocket.mass
+        if has_fuel and rocket.mass > 0
+        else 0.0
+    )
+    acceleration = drag_accel + thrust_accel - 9.81
+
+    rocket.velocity += acceleration * dt
+    height_delta = rocket.velocity * dt
+    rocket.height = max(0.0, rocket.height + height_delta)
 
     for instance in flight_parts:
-        instance.y -= UP
-        if UP < 0:
+        instance.y -= height_delta
+        if rocket.velocity < 0:
             if instance.FALL_X == 0:
-                instance.FALL_X = rng.random()-0.5
+                instance.FALL_X = rng.random() - 0.5
             instance.x += instance.FALL_X
 
-    if rocket.fuel_remaining > 0:
-        V += A
-        A = A - math.log(A)
-    if rocket.fuel_remaining <= 0:
-        FALL += 1
-
-    if FALL > 0:
-        rocket.velocity -= FALL
-
-    rocket.velocity = V
-    if V > 0 and rocket.fuel_remaining > 0:
-        rocket.height += V * dt
-    else:
-        rocket.height -= V * dt
-
-    if rocket.fuel_remaining > 0 and V > 0:
+    if has_fuel:
         rocket.fuel_remaining = max(
             0.0,
             rocket.fuel_remaining - rocket.fuel_consumption_rate * dt,
@@ -199,29 +193,33 @@ def update_flight(dt: float):
 
     rocket.heat = max(0.0, rocket.heat - rocket.total_heat_dissipation * dt)
 
+    V = rocket.velocity
+    UP = rocket.velocity
+
 
 def start_flight():
     global phase, V, W, camera_scroll_y
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
-    print(f"Launch! thrust={rocket.total_thrust:.0f} weight={rocket.total_weight:.0f} "
-          f"stability={rocket.stability:.1f} fuel={rocket.total_fuel_capacity:.0f}")
+    print(
+        f"Launch! thrust={rocket.total_thrust:.0f} weight={rocket.total_weight:.0f} "
+        f"stability={rocket.stability:.1f} fuel={rocket.total_fuel_capacity:.0f} "
+        f"fuel_consumption={rocket.total_fuel_consumption:.2f}"
+    )
     phase = Phase.FLIGHT
     flight_parts.clear()
     camera_scroll_y = 0
     V = 0
+    W = 0
     rocket.height = 0.0
     rocket.heat = 0.0
+    rocket.velocity = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
-    # This is now using Kot's calculations from the Canva.
-    # It can be found in rocket.py, lines 111-138.
-    V = rocket.performance
-    rocket.velocity = V
 
 
 build_scene = BuildScene(
@@ -303,17 +301,16 @@ def handle_camera():
         if not flight_parts:
             return
         center_y = sum(part.y for part in flight_parts) / len(flight_parts)
-        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry and UP > 0:
-            scroll = (V - camera_scroll_speed) * dt
+        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry and rocket.velocity > 0:
+            scroll = max(0.0, rocket.velocity - camera_scroll_speed) * dt
             for part in flight_parts:
                 part.y += scroll
             camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
-        if UP < 0:
-            d = (W+FALL)
-            scroll = -(d - camera_scroll_speed) * dt
+        elif rocket.velocity < 0:
+            scroll = min(0.0, rocket.velocity + camera_scroll_speed) * dt
             for part in flight_parts:
-                part.y += scroll
-            camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
+                part.y -= scroll
+            camera_scroll_y = min(camera_scroll_y - scroll, _max_scroll())
         return
 
     player = find_player()

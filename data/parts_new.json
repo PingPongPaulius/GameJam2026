@@ -1,0 +1,149 @@
+{
+  "_notes": {
+    "units": {
+      "weight": "tons (dry mass of the part)",
+      "thrust": "kN",
+      "fuel_capacity": "tons of fuel (full tank mass = weight + fuel_capacity)",
+      "fuel_consumption": "tons/s",
+      "drag": "relative dimensionless coefficient; a_drag = DRAG_SCALE * v^2 * sum(drag), DRAG_SCALE ~ 2e-5",
+      "stability_contribution": "relative, positive = more stable",
+      "heat_dissipation": "placeholder, not yet modeled"
+    },
+    "implied_isp": "Isp = thrust*1000 / (fuel_consumption*1000 * 9.81)"
+  },
+  "parts": [
+    {
+      "id": "carbon_needle_nose_cone",
+      "name": "Carbon Needle Nose Cone",
+      "part_type": "NOSE_CONE",
+      "weight": 0.1,
+      "drag": 0.1,
+      "stability_contribution": 0.5,
+      "sprite": "nosecone_basic.png"
+    },
+    {
+      "id": "standard_nose_cone",
+      "name": "Standard Nose Cone",
+      "part_type": "NOSE_CONE",
+      "weight": 0.15,
+      "drag": 0.2,
+      "stability_contribution": 0.5,
+      "sprite": "nosecone_basic.png"
+    },
+    {
+      "id": "blunt_nose_cone",
+      "name": "Blunt Nose Cone",
+      "part_type": "NOSE_CONE",
+      "weight": 0.2,
+      "drag": 0.5,
+      "stability_contribution": 0.4,
+      "sprite": "nosecone_basic.png"
+    },
+
+    {
+      "id": "compact_fuel_tank",
+      "name": "Compact Fuel Tank",
+      "part_type": "FUEL_TANK",
+      "weight": 0.5,
+      "drag": 0.3,
+      "fuel_capacity": 4.0,
+      "stability_contribution": 0.5,
+      "sprite": "fueltank_basic.png"
+    },
+    {
+      "id": "extended_fuel_tank",
+      "name": "Extended Fuel Tank",
+      "part_type": "FUEL_TANK",
+      "weight": 1.0,
+      "drag": 0.35,
+      "fuel_capacity": 9.0,
+      "stability_contribution": 0.5,
+      "sprite": "fueltank_basic.png"
+    },
+    {
+      "id": "cryogenic_fuel_tank",
+      "name": "Cryogenic Fuel Tank",
+      "part_type": "FUEL_TANK",
+      "weight": 0.9,
+      "drag": 0.32,
+      "fuel_capacity": 7.0,
+      "stability_contribution": 0.5,
+      "sprite": "fueltank_basic.png"
+    },
+
+    {
+      "id": "small_efficient_engine",
+      "name": "Small Efficient Engine",
+      "part_type": "ENGINE",
+      "weight": 0.5,
+      "drag": 0.2,
+      "thrust": 40.0,
+      "heat_dissipation": 0.5,
+      "fuel_consumption": 0.018,
+      "sprite": "engine_basic.png"
+    },
+    {
+      "id": "medium_engine",
+      "name": "Medium Engine",
+      "part_type": "ENGINE",
+      "weight": 1.2,
+      "drag": 0.25,
+      "thrust": 100.0,
+      "heat_dissipation": 0.5,
+      "fuel_consumption": 0.068,
+      "sprite": "engine_basic.png"
+    },
+    {
+      "id": "heavy_booster_engine",
+      "name": "Heavy Booster Engine",
+      "part_type": "ENGINE",
+      "weight": 3.5,
+      "drag": 0.4,
+      "thrust": 300.0,
+      "heat_dissipation": 0.5,
+      "fuel_consumption": 0.231,
+      "sprite": "engine_basic.png"
+    },
+    {
+      "id": "vacuum_engine",
+      "name": "Vacuum Engine",
+      "part_type": "ENGINE",
+      "weight": 1.0,
+      "drag": 0.2,
+      "thrust": 60.0,
+      "heat_dissipation": 0.5,
+      "fuel_consumption": 0.035,
+      "sprite": "engine_basic.png"
+    },
+    {
+      "id": "vector_engine",
+      "name": "Vector Engine",
+      "part_type": "ENGINE",
+      "weight": 1.5,
+      "drag": 0.28,
+      "thrust": 120.0,
+      "heat_dissipation": 0.5,
+      "fuel_consumption": 0.082,
+      "sprite": "engine_basic.png"
+    },
+
+    {
+      "id": "small_stabilizer_fins",
+      "name": "Small Stabilizer Fins",
+      "part_type": "FIN",
+      "weight": 0.05,
+      "drag": 0.15,
+      "stability_contribution": 3.0,
+      "sprite": "fin_basic.png"
+    },
+    {
+      "id": "large_stabilizer_fins",
+      "name": "Large Stabilizer Fins",
+      "part_type": "FIN",
+      "weight": 0.12,
+      "drag": 0.35,
+      "stability_contribution": 6.0,
+      "sprite": "fin_basic.png"
+    }
+  ]
+}
