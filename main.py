@@ -15,8 +15,10 @@ from rocket.pilot import Pilot, PilotAttributes
 from rocket.pilot_data import PILOT_CATALOG
 from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
+from api.highscore_client import submit_highscore
 from ui.build_sidebar import BuildSidebar
 from ui.rocket_debug_panel import RocketDebugPanel
+from ui.score_overlay import ScoreOverlay
 from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene
 from rendering.rocket_renderer import draw_rocket
@@ -41,6 +43,7 @@ dt = 1/FPS
 class Phase(Enum):
     BUILD = auto()
     FLIGHT = auto()
+    RESULTS = auto()
 
 
 class InstanceWrapper:
@@ -132,8 +135,19 @@ V = 0
 W = 0
 UP = 0
 camera_scroll_y = 0
+max_height = 0.0
+max_speed = 0.0
 _background_cache = {}
 _background_slices = []
+
+
+def on_score_submit(name: str, height: float, top_speed: float):
+    ok, message = submit_highscore(name, height, top_speed=top_speed)
+    print(f"Highscore API: ok={ok} name={name!r} height={height:.0f} top_speed={top_speed:.1f} ({message})")
+    return ok, message
+
+
+score_overlay = ScoreOverlay(on_submit=on_score_submit)
 
 
 def _load_background_slices():
@@ -148,7 +162,7 @@ def _load_background_slices():
 
 
 def update_flight(dt: float):
-    global V, UP
+    global V, UP, max_height, max_speed, phase
 
     has_fuel = rocket.fuel_remaining > 0
     drag_accel = (
@@ -163,11 +177,13 @@ def update_flight(dt: float):
     )
     rocket.acceleration = drag_accel + thrust_accel - 9.81
 
-
-
     rocket.velocity += rocket.acceleration * dt
     height_delta = rocket.velocity * dt
+    previous_height = rocket.height
     rocket.height = max(0.0, rocket.height + height_delta)
+
+    max_height = max(max_height, rocket.height)
+    max_speed = max(max_speed, rocket.velocity)
 
     for instance in flight_parts:
         instance.y -= height_delta
@@ -188,9 +204,15 @@ def update_flight(dt: float):
     V = rocket.velocity
     UP = rocket.velocity
 
+    # Flight ends once the rocket has left the ground and then lands again.
+    if previous_height > 1.0 and rocket.height <= 0.0 and rocket.velocity <= 0.0:
+        rocket.velocity = 0.0
+        phase = Phase.RESULTS
+        score_overlay.show(max_height, max_speed)
+
 
 def start_flight():
-    global phase, V, W, camera_scroll_y
+    global phase, V, W, camera_scroll_y, max_height, max_speed
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -202,6 +224,8 @@ def start_flight():
     phase = Phase.FLIGHT
     flight_parts.clear()
     camera_scroll_y = 0
+    max_height = 0.0
+    max_speed = 0.0
     V = 0
     W = 0
     rocket.height = 0.0
@@ -330,6 +354,8 @@ def frame():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return False
+        if score_overlay.visible and score_overlay.handle_event(event):
+            continue
         if phase == Phase.BUILD:
             build_scene.handle_event(event)
 
@@ -340,10 +366,10 @@ def frame():
         build_scene.update(dt)
         build_scene.draw(screen)
 
-    elif phase == Phase.FLIGHT:
-        # Velocity updated moved to its own function above in this file
-        update_flight(dt)
-        handle_camera()
+    elif phase in (Phase.FLIGHT, Phase.RESULTS):
+        if phase == Phase.FLIGHT:
+            update_flight(dt)
+            handle_camera()
         handle_background(camera_scroll_y)
         for instance in flight_parts:
             image = build_scene.assets.get_image(instance.instance.part_def.sprite)
@@ -355,7 +381,14 @@ def frame():
     exit_button.render(screen)
 
     if show_rocket_debug:
-        rocket_debug_panel.draw(screen, rocket, in_flight=phase == Phase.FLIGHT)
+        rocket_debug_panel.draw(
+            screen,
+            rocket,
+            in_flight=phase in (Phase.FLIGHT, Phase.RESULTS),
+        )
+
+    score_overlay.update(dt)
+    score_overlay.draw(screen)
 
     pygame.display.flip()
     dt = clock.tick(FPS) / 1000
