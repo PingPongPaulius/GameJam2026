@@ -210,11 +210,20 @@ def update_flight(dt: float):
         else 0.0
     )
 
-    rocket.rotation_acceleration = (
-        (rocket.center_of_thrust_x - rocket.center_of_gravity_x) * rocket.total_thrust / rocket.moment_of_inertia
+    thrust_torque_accel = (
+        (rocket.center_of_gravity_x - rocket.center_of_thrust_x) * rocket.total_thrust / rocket.moment_of_inertia
         if has_fuel and rocket.moment_of_inertia > 0
         else 0.0
     )
+
+    FIN_DAMPING_COEFFICIENT = 0.02
+    rocket.rotation_damping = (
+        FIN_DAMPING_COEFFICIENT * rocket.stability * rocket.velocity / rocket.moment_of_inertia
+        if rocket.moment_of_inertia > 0
+        else 0.0
+    )
+
+    rocket.rotation_acceleration = thrust_torque_accel - rocket.rotation_damping * rocket.rotation_speed
 
     rocket.rotation_speed += rocket.rotation_acceleration * dt
     rocket.rotation += rocket.rotation_speed * dt
@@ -241,6 +250,7 @@ def update_flight(dt: float):
     max_height = max(max_height, rocket.height)
     max_speed = max(max_speed, rocket.velocity)
     x_delta = rocket.x_velocity * dt if not land_hit else 0.0
+    rocket.x_position += x_delta
 
     rocket_center_y -= height_delta
     rocket_center_x += x_delta
@@ -302,6 +312,7 @@ def start_flight():
     V = 0
     W = 0
     rocket.height = 0.0
+    rocket.x_position = 0.0
     rocket.heat = 0.0
     rocket.y_velocity = 0.0
     rocket.x_velocity = 0.0
@@ -528,6 +539,7 @@ def frame():
             screen,
             rocket,
             in_flight=phase in (Phase.FLIGHT, Phase.RESULTS),
+            position=(rocket.x_position, rocket.height),
         )
 
     score_overlay.update(dt)

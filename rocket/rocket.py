@@ -11,6 +11,7 @@ class Rocket:
         self.parts: list[PartInstance] = []
 
         self.height = 0.0
+        self.x_position = 0.0
         self.x_velocity = 0.0
         self.y_velocity = 0.0
         self.velocity = 0.0
