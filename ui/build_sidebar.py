@@ -8,16 +8,17 @@ SOURCE_SIZE = (420, 1080)
 PILOT_REGION = pygame.Rect(32, 28, 356, 300)
 ATTR_REGION = pygame.Rect(70, 355, 356, 88)
 PARTS_REGION = pygame.Rect(32, 460, 356, 630)
+# Full recessed panel opening in UI_Sidebar_Base (source coords).
+COVER_REGION = pygame.Rect(24, 444, 372, 608)
 PARTS_TOP_PADDING = 20
 
 
 def _scale_region(region: pygame.Rect, scale: float) -> pygame.Rect:
-    return pygame.Rect(
-        int(region.x * scale),
-        int(region.y * scale),
-        int(region.width * scale),
-        int(region.height * scale),
-    )
+    left = round(region.x * scale)
+    top = round(region.y * scale)
+    right = round((region.x + region.width) * scale)
+    bottom = round((region.y + region.height) * scale)
+    return pygame.Rect(left, top, right - left, bottom - top)
 
 
 class BuildSidebar:
@@ -48,6 +49,7 @@ class BuildSidebar:
             part_defs,
             assets,
             content_rect=parts_content,
+            cover_rect=_scale_region(COVER_REGION, scale),
             draw_background=False,
             parts_per_row=3,
         )

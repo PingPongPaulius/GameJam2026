@@ -3,7 +3,7 @@ import pygame
 class SlideCover:
     def __init__(self, rect, direction="down", duration=500):
         """
-        rect: pygame.Rect - the final covered position/size
+        rect: pygame.Rect - the final covered position/size (also used as draw mask)
         direction: "down" or "up" - which way it slides to cover
         duration: animation duration in ms
         """
@@ -53,11 +53,20 @@ class SlideCover:
             self.covered = True  # now it's fully blocking
 
     def draw(self, surface, image=None, color=(40, 40, 40)):
-        if self.active or self.covered:
+        if not (self.active or self.covered):
+            return
+
+        # Clip to the panel so the cover appears to emerge from the top edge
+        # instead of being visible above the palette while sliding in.
+        prev_clip = surface.get_clip()
+        surface.set_clip(self.rect.clip(prev_clip))
+        try:
             if image:
                 surface.blit(image, self.current_rect)
             else:
                 pygame.draw.rect(surface, color, self.current_rect)
+        finally:
+            surface.set_clip(prev_clip)
 
     def is_blocking(self, point):
         """Check if a point (e.g. mouse click) is blocked by the cover."""

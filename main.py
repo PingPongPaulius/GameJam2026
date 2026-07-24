@@ -26,6 +26,7 @@ from vector import Vector
 pygame.init()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
+BG_COLOR = (20, 20, 20)
 
 # Get the desktop size and set the screen size to 80% of it
 desktop_w, desktop_h = pygame.display.get_desktop_sizes()[0]
@@ -87,7 +88,7 @@ slot_count = 20
 horizontal_snap_points = 8
 
 # Countdown for the launch
-build_countdown_seconds = 30
+build_countdown_seconds = 10
 elapsed = 0.0
 _locked = False
 
@@ -281,6 +282,7 @@ def handle_background(scroll_y: float = 0):
         return
 
     slice_height = _background_slices[0].get_height()
+    slice_width = _background_slices[0].get_width()
     scroll_offset = min(max(0, int(scroll_y)), _max_scroll())
     stack_bottom = SCREEN_HEIGHT + scroll_offset
 
@@ -288,8 +290,10 @@ def handle_background(scroll_y: float = 0):
         y = stack_bottom - (index + 1) * slice_height
         if y + slice_height < 0 or y > SCREEN_HEIGHT:
             continue
-        screen.blit(slice_image, (0, y))
-        screen.blit(slice_image, (SCREEN_WIDTH / 2, y))
+        # Tile by image width so halves meet with no gap (SCREEN_WIDTH/2
+        # left a seam once the window became larger than 2x slice width).
+        for x in range(0, SCREEN_WIDTH, slice_width):
+            screen.blit(slice_image, (x, y))
 
 
 def handle_camera():
@@ -331,7 +335,7 @@ def frame():
         if phase == Phase.BUILD:
             build_scene.handle_event(event)
 
-    screen.fill("gray")
+    screen.fill(BG_COLOR)
 
     if phase == Phase.BUILD:
         handle_background()
@@ -346,6 +350,7 @@ def frame():
         for instance in flight_parts:
             image = build_scene.assets.get_image(instance.instance.part_def.sprite)
             screen.blit(image, image.get_rect(center=instance.get_pos()))
+        sidebar.draw(screen)
 
     if exit_button.update() == "Pressed":
         return False

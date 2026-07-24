@@ -53,6 +53,7 @@ class PartPalette:
         parts_per_row=PARTS_PER_ROW,
         background_padding=BACKGROUND_PADDING,
         content_rect=None,
+        cover_rect=None,
         draw_background=True,
     ):
         self.assets = assets
@@ -84,10 +85,15 @@ class PartPalette:
 
         if self.items and self.draw_background:
             self.background_rect = self._compute_background_rect()
-        else:
-            self._item_bounds_rect = content_rect
 
-        self.cover = SlideCover(self._item_bounds_rect, direction="Down")
+        if cover_rect is not None:
+            cover_area = cover_rect
+        elif self.draw_background and self.items:
+            cover_area = self.background_rect
+        else:
+            cover_area = content_rect
+
+        self.cover = SlideCover(cover_area, direction="down")
 
     def _fit_layout(self, part_defs, content_rect, item_size, padding, parts_per_row):
         grouped = self._group_part_defs(part_defs)
