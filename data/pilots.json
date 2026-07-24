@@ -15,7 +15,7 @@
             "id": 2,
             "name": "Alien",
             "attributes": {
-                "fuel_consumption": 0.0,
+                "fuel_consumption": 0.5,
                 "weight_reduction": 2.0,
                 "thrust_increase": 3.0,
                 "drag_efficiency": 0.0

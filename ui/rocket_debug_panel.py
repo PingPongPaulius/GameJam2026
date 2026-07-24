@@ -26,11 +26,11 @@ class RocketDebugPanel:
             ("Rotation", f"{rocket.rotation * 180 / 3.14159:.2f}"),
             (
                 "Fuel",
-                f"{rocket.fuel_remaining:.0f} / {rocket.total_fuel_capacity:.0f}",
+                f"{rocket.fuel_remaining:.2f} / {rocket.total_fuel_capacity:.2f}",
             ),
             ("Heat", f"{rocket.heat:.1f}"),
             ("Stability", f"{rocket.stability:.1f}"),
-            ("Fuel use/s", f"{rocket.total_fuel_consumption:.2f}"),
+            ("Fuel use/s", f"{rocket.fuel_consumption_rate:.3f}"),
         ]
         if rocket.parts:
             lines.append(("CoM slot", f"{rocket.center_of_mass_slot:.2f}"))

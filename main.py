@@ -289,8 +289,8 @@ def start_flight():
         print("Launching anyway with issues:", errors)
     print(
         f"Launch! thrust={rocket.total_thrust:.0f} weight={rocket.total_weight:.0f} "
-        f"stability={rocket.stability:.1f} fuel={rocket.total_fuel_capacity:.0f} "
-        f"fuel_consumption={rocket.total_fuel_consumption:.2f}"
+        f"stability={rocket.stability:.1f} fuel={rocket.total_fuel_capacity:.2f} "
+        f"fuel_consumption={rocket.fuel_consumption_rate:.3f}"
     )
     phase = Phase.FLIGHT
     flight_parts.clear()

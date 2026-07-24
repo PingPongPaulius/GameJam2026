@@ -181,7 +181,8 @@ class Rocket:
 
     @property
     def fuel_consumption_rate(self) -> float:
-        return self.total_fuel_consumption * self.pilot.attributes.fuel_consumption
+        # Pilot attribute multipliers are not applied to flight yet.
+        return self.total_fuel_consumption
 
     @property
     def fuel_weight(self) -> float:
@@ -218,6 +219,8 @@ class Rocket:
             return ["Rocket has no parts."]
         if not any(p.part_def.part_type == PartType.ENGINE for p in self.parts):
             errors.append("Missing an engine.")
+        if not any(p.part_def.part_type == PartType.FUEL_TANK for p in self.parts):
+            errors.append("Missing a fuel tank.")
         if not any(p.part_def.part_type == PartType.NOSE_CONE for p in self.parts):
             errors.append("Missing a nose cone.")
         return errors
