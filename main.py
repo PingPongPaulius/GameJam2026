@@ -147,16 +147,6 @@ def _load_background_slices():
     return [_get_background(path) for _, path in numbered]
 
 
-def _background_stack_height() -> int:
-    if not _background_slices:
-        return 0
-    return len(_background_slices) * _background_slices[0].get_height()
-
-
-def _max_scroll() -> int:
-    return max(0, _background_stack_height() - SCREEN_HEIGHT)
-
-
 def update_flight(dt: float):
     global V, UP
 
@@ -281,15 +271,24 @@ def handle_background(scroll_y: float = 0):
 
     slice_height = _background_slices[0].get_height()
     slice_width = _background_slices[0].get_width()
-    scroll_offset = min(max(0, int(scroll_y)), _max_scroll())
+    scroll_offset = max(0, int(scroll_y))
     stack_bottom = SCREEN_HEIGHT + scroll_offset
 
-    for index, slice_image in enumerate(_background_slices):
+    # Draw enough vertical tiles to fill the screen. Past the authored stack,
+    # keep repeating the topmost slice so flight can go forever.
+    start_index = max(0, scroll_offset // slice_height - 1)
+    end_index = (SCREEN_HEIGHT + scroll_offset) // slice_height + 1
+    top_slice = _background_slices[-1]
+
+    for index in range(start_index, end_index + 1):
+        slice_image = (
+            _background_slices[index]
+            if index < len(_background_slices)
+            else top_slice
+        )
         y = stack_bottom - (index + 1) * slice_height
         if y + slice_height < 0 or y > SCREEN_HEIGHT:
             continue
-        # Tile by image width so halves meet with no gap (SCREEN_WIDTH/2
-        # left a seam once the window became larger than 2x slice width).
         for x in range(0, SCREEN_WIDTH, slice_width):
             screen.blit(slice_image, (x, y))
 
@@ -305,12 +304,12 @@ def handle_camera():
             scroll = max(0.0, rocket.velocity - camera_scroll_speed) * dt
             for part in flight_parts:
                 part.y += scroll
-            camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
+            camera_scroll_y += scroll
         elif rocket.velocity < 0:
             scroll = min(0.0, rocket.velocity + camera_scroll_speed) * dt
             for part in flight_parts:
                 part.y -= scroll
-            camera_scroll_y = min(camera_scroll_y - scroll, _max_scroll())
+            camera_scroll_y = max(0.0, camera_scroll_y - scroll)
         return
 
     player = find_player()
