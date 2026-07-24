@@ -2,6 +2,7 @@ import pygame
 
 from rocket.pilot import Pilot
 from ui.part_palette import PartPalette
+from ui.slide_cover import SlideCover
 
 SOURCE_SIZE = (420, 1080)
 PILOT_REGION = pygame.Rect(32, 28, 356, 300)
@@ -104,3 +105,6 @@ class BuildSidebar:
 
     def draw_tooltip(self, surface):
         self.palette.draw_tooltip(surface)
+
+    def lock_palette(self):
+        self.palette.lock_palette()

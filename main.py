@@ -15,6 +15,7 @@ from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
 from ui.build_sidebar import BuildSidebar
 from ui.rocket_debug_panel import RocketDebugPanel
+from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene
 from rendering.rocket_renderer import draw_rocket
 
@@ -75,7 +76,9 @@ slot_count = 20
 horizontal_snap_points = 8
 
 # Countdown for the launch
-build_countdown_seconds = 30
+build_countdown_seconds = 10
+elapsed = 0.0
+_locked = False
 
 # Debug options
 show_rocket_debug = True
@@ -88,6 +91,7 @@ pilot = Pilot(
     portrait_sprite="pilots/pilot-1.gif",
 )
 rocket = Rocket(pilot)
+
 sidebar = BuildSidebar(
     pilot,
     list(PART_CATALOG.values()),
@@ -282,6 +286,7 @@ def frame():
         build_scene.draw(screen)
 
     elif phase == Phase.FLIGHT:
+        # Velocity updated moved to its own function above in this file
         update_flight(dt)
         for instance in flight_parts:
             instance.y -= V * dt

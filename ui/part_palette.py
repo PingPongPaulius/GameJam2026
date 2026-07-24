@@ -6,6 +6,8 @@ import pygame
 from rocket.part_data import PartDef
 from rocket.part_types import PartType
 
+from ui.slide_cover import SlideCover
+
 
 TYPE_ORDER = [
     PartType.NOSE_CONE,
@@ -82,6 +84,10 @@ class PartPalette:
 
         if self.items and self.draw_background:
             self.background_rect = self._compute_background_rect()
+        else:
+            self._item_bounds_rect = content_rect
+
+        self.cover = SlideCover(self._item_bounds_rect, direction="Up")
 
     def _fit_layout(self, part_defs, content_rect, item_size, padding, parts_per_row):
         grouped = self._group_part_defs(part_defs)
@@ -154,6 +160,9 @@ class PartPalette:
         return rect.inflate(self.background_padding * 2, self.background_padding * 2)
 
     def update_hover(self, mouse_pos):
+        if self.cover.covered:
+            self.hovered_item = None
+            return
         self.hovered_item = self.item_at(mouse_pos)
 
     def _draw_background(self, surface):
@@ -193,6 +202,14 @@ class PartPalette:
             surface.blit(pygame.transform.smoothscale(image, item.rect.size), item.rect)
             border_color = (180, 210, 255) if item is self.hovered_item else (255, 255, 255)
             pygame.draw.rect(surface, border_color, item.rect, 0 if item is self.hovered_item else 1)
+
+        self.cover.update()
+        self.cover.draw(surface, color=(20, 20, 20))
+
+    def lock_palette(self):
+        """Call this ONCE to start the slide-in cover animation."""
+        self.cover.trigger()
+
 
     def draw_tooltip(self, surface):
         if self.hovered_item is None:
@@ -270,6 +287,8 @@ class PartPalette:
             y += line_height
 
     def item_at(self, pos):
+        if self.cover.covered:
+            return None
         for item in self.items:
             if item.rect.collidepoint(pos):
                 return item

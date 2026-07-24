@@ -19,6 +19,10 @@ class BuildScene:
         self.on_timeout = on_timeout
         self._done = False
 
+        self.lock_after_seconds = countdown_seconds
+        self.elapsed = 0.0
+        self._locked = False
+
     def handle_event(self, event): 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             item = self.sidebar.item_at(event.pos)
@@ -81,7 +85,12 @@ class BuildScene:
         if self._done:
             return
         self.time_remaining = max(0.0, self.time_remaining - dt)
+        self.elapsed += dt
+        if not self._locked and self.elapsed >= self.lock_after_seconds - 5:
+            self.sidebar.lock_palette()
+            self._locked = True
         if self.time_remaining == 0:
+            
             self._done = True
             if self.on_timeout:
                 self.on_timeout()
