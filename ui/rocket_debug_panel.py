@@ -20,6 +20,7 @@ class RocketDebugPanel:
             ("Performance", f"{rocket.performance:.1f}"),
             ("Velocity", f"{rocket.velocity:.1f}"),
             ("Height", f"{rocket.height:.0f}"),
+            ("Acceleration", f"{rocket.acceleration:.1f}"),
             (
                 "Fuel",
                 f"{rocket.fuel_remaining:.0f} / {rocket.total_fuel_capacity:.0f}",
