@@ -2,7 +2,10 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PilotAttributes:
-    fuel_consumption: float = 1.0
+    fuel_consumption: float = 0.0
+    weight_reduction: float = 0.0
+    thrust_increase: float = 0.0
+    drag_efficiency: float = 0.0
 
 @dataclass
 class Pilot:

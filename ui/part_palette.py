@@ -87,7 +87,7 @@ class PartPalette:
         else:
             self._item_bounds_rect = content_rect
 
-        self.cover = SlideCover(self._item_bounds_rect, direction="Up")
+        self.cover = SlideCover(self._item_bounds_rect, direction="Down")
 
     def _fit_layout(self, part_defs, content_rect, item_size, padding, parts_per_row):
         grouped = self._group_part_defs(part_defs)

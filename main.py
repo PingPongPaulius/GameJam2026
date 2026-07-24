@@ -13,6 +13,7 @@ from anime import Animation
 
 from rocket.part_data import PART_CATALOG
 from rocket.pilot import Pilot, PilotAttributes
+from rocket.pilot_data import PILOT_CATALOG
 from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
 from ui.build_sidebar import BuildSidebar
@@ -86,7 +87,7 @@ slot_count = 20
 horizontal_snap_points = 8
 
 # Countdown for the launch
-build_countdown_seconds = 10
+build_countdown_seconds = 30
 elapsed = 0.0
 _locked = False
 
@@ -95,10 +96,17 @@ show_rocket_debug = True
 enable_snap_draws = False
 
 assets = AnimationAssetAdapter(loader)
+pilots = PILOT_CATALOG
+
+if rng.randint(1, 100) > 99:
+    selected_pilot = 4
+else:
+    selected_pilot = rng.randint(1,3)
+
 pilot = Pilot(
-    name="Pepe the Pilot", 
-    attributes=PilotAttributes(fuel_consumption=1.0),
-    portrait_sprite="pilots/pilot-1.gif",
+    name=pilots[selected_pilot].name,
+    attributes=PilotAttributes(**pilots[selected_pilot].attributes),
+    portrait_sprite=pilots[selected_pilot].avatar,
 )
 rocket = Rocket(pilot)
 
@@ -166,15 +174,20 @@ def update_flight(dt: float):
                 instance.FALL_X = rng.random()-0.5
             instance.x += instance.FALL_X
 
-
-    V += A
-    A = A - math.log(A)
+    if rocket.fuel_remaining > 0:
+        V += A
+        A = A - math.log(A)
     if rocket.fuel_remaining <= 0:
         FALL += 1
 
+    if FALL > 0:
+        rocket.velocity -= FALL
+
     rocket.velocity = V
-    if V > 0:
+    if V > 0 and rocket.fuel_remaining > 0:
         rocket.height += V * dt
+    else:
+        rocket.height -= V * dt
 
     if rocket.fuel_remaining > 0 and V > 0:
         rocket.fuel_remaining = max(

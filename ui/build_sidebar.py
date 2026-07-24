@@ -55,7 +55,7 @@ class BuildSidebar:
         self._load_portrait()
 
     def _load_portrait(self):
-        path = f"Sprites/{self.pilot.portrait_sprite}"
+        path = f"Sprites/pilots/{self.pilot.portrait_sprite}"
         image = pygame.image.load(path).convert_alpha()
         side = min(self.pilot_region.width, self.pilot_region.height) - 16
         self._portrait_surface = self._scale_to_square(image, side)
@@ -73,10 +73,18 @@ class BuildSidebar:
         return surface
 
     def _attribute_lines(self) -> list[str]:
+        attributes = []
         attrs = self.pilot.attributes
-        return [
-            f"Fuel use: x{attrs.fuel_consumption:.1f}",
-        ]
+        if attrs.fuel_consumption != 0:
+            attributes.append(f"Fuel use: x{attrs.fuel_consumption:.1f}")
+        if attrs.weight_reduction != 0:
+            attributes.append(f"Weight reduction: x{attrs.weight_reduction:.1f}")
+        if attrs.thrust_increase != 0:
+            attributes.append(f"Thrust increase: x{attrs.thrust_increase:.1f}")
+        if attrs.drag_efficiency != 0:
+            attributes.append(f"Drag efficiency: x{attrs.drag_efficiency:.1f}")
+
+        return attributes
 
     def update_hover(self, mouse_pos):
         self.palette.update_hover(mouse_pos)
@@ -91,10 +99,10 @@ class BuildSidebar:
         surface.blit(self._portrait_surface, portrait_rect)
 
         x = self.attr_region.x + 12
-        y = self.attr_region.y + 8
+        y = self.attr_region.y - 50
         name_surf = self._name_font.render(self.pilot.name, True, (230, 236, 248))
         surface.blit(name_surf, (x, y))
-        y += name_surf.get_height() + 4
+        y += name_surf.get_height() + 30
 
         for line in self._attribute_lines():
             line_surf = self._attr_font.render(line, True, (170, 185, 210))

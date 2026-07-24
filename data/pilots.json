@@ -1,0 +1,48 @@
+{
+    "pilots": [
+        {
+            "id": 1,
+            "name": "Human",
+            "attributes": {
+                "fuel_consumption": 2.0,
+                "weight_reduction": 0.0,
+                "thrust_increase": 0.0,
+                "drag_efficiency": 3.0
+            },
+            "avatar": "Pilot_Human.png"
+        },
+        {
+            "id": 2,
+            "name": "Alien",
+            "attributes": {
+                "fuel_consumption": 0.0,
+                "weight_reduction": 2.0,
+                "thrust_increase": 3.0,
+                "drag_efficiency": 0.0
+            },
+            "avatar": "Pilot_Alien.png"
+        },
+        {
+            "id": 3,
+            "name": "Robot",
+            "attributes": {
+                "fuel_consumption": 1.0,
+                "weight_reduction": 0.0,
+                "thrust_increase": 0.0,
+                "drag_efficiency": 0.0
+            },
+            "avatar": "Pilot_Robot.png"
+        },
+        {
+            "id": 4,
+            "name": "Pepe",
+            "attributes": {
+                "fuel_consumption": 1.0,
+                "weight_reduction": 0.0,
+                "thrust_increase": 0.0,
+                "drag_efficiency": 0.0
+            },
+            "avatar": "Pilot_Pepe.jpg"
+        }
+    ]
+}
