@@ -216,6 +216,10 @@ class PartPalette:
         """Call this ONCE to start the slide-in cover animation."""
         self.cover.trigger()
 
+    def unlock_palette(self):
+        """Open the cover again so parts can be picked."""
+        self.cover.reset()
+
 
     def draw_tooltip(self, surface):
         if self.hovered_item is None:

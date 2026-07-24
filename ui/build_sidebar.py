@@ -118,3 +118,6 @@ class BuildSidebar:
 
     def lock_palette(self):
         self.palette.lock_palette()
+
+    def unlock_palette(self):
+        self.palette.unlock_palette()

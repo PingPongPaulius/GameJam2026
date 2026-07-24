@@ -11,8 +11,9 @@ class ScoreOverlay:
     LEADERBOARD_LIMIT = 5
     ROW_HEIGHT = 26
 
-    def __init__(self, on_submit=None):
+    def __init__(self, on_submit=None, on_restart=None):
         self.on_submit = on_submit
+        self.on_restart = on_restart
         self.visible = False
         self.name = ""
         self.height = 0.0
@@ -22,9 +23,10 @@ class ScoreOverlay:
         self.leaderboard = []
         self.leaderboard_error = ""
         self._submitting = False
+        self._submitted = False
         self._cursor_visible = True
         self._cursor_timer = 0.0
-        self._submit_was_down = False
+        self._button_was_down = False
 
         self._title_font = pygame.font.SysFont(None, 36)
         self._label_font = pygame.font.SysFont(None, 24)
@@ -37,7 +39,7 @@ class ScoreOverlay:
 
         self._panel_rect = pygame.Rect(0, 0, self.PANEL_W, 500)
         self._input_rect = pygame.Rect(0, 0, 0, 0)
-        self._submit_rect = pygame.Rect(0, 0, 0, 0)
+        self._action_rect = pygame.Rect(0, 0, 0, 0)
 
     def show(self, height: float, max_speed: float):
         self.visible = True
@@ -47,14 +49,16 @@ class ScoreOverlay:
         self.status = ""
         self.status_ok = None
         self._submitting = False
+        self._submitted = False
         self._cursor_visible = True
         self._cursor_timer = 0.0
-        self._submit_was_down = False
+        self._button_was_down = False
         self._load_leaderboard()
 
     def hide(self):
         self.visible = False
         self._submitting = False
+        self._submitted = False
 
     def handle_event(self, event) -> bool:
         """Consume overlay events. Returns True if the event was handled."""
@@ -63,6 +67,23 @@ class ScoreOverlay:
 
         if self._submitting:
             return True
+
+        if self._submitted:
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                self._try_restart()
+                return True
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                if self._action_rect.collidepoint(event.pos):
+                    self._try_restart()
+                return True
+            return event.type in (
+                pygame.KEYDOWN,
+                pygame.KEYUP,
+                pygame.MOUSEBUTTONDOWN,
+                pygame.MOUSEBUTTONUP,
+                pygame.MOUSEMOTION,
+                pygame.TEXTINPUT,
+            )
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_RETURN:
@@ -105,10 +126,13 @@ class ScoreOverlay:
 
         mouse_down = pygame.mouse.get_pressed()[0]
         mouse_pos = pygame.mouse.get_pos()
-        hovered = self._submit_rect.collidepoint(mouse_pos)
-        if mouse_down and hovered and not self._submit_was_down:
-            self._try_submit()
-        self._submit_was_down = mouse_down
+        hovered = self._action_rect.collidepoint(mouse_pos)
+        if mouse_down and hovered and not self._button_was_down:
+            if self._submitted:
+                self._try_restart()
+            else:
+                self._try_submit()
+        self._button_was_down = mouse_down
 
     def draw(self, surface: pygame.Surface):
         if not self.visible:
@@ -157,6 +181,26 @@ class ScoreOverlay:
 
         y = self._draw_leaderboard(surface, x, y, right)
 
+        if self._submitted:
+            y = self._draw_submitted_footer(surface, panel, x, y)
+        else:
+            y = self._draw_submit_footer(surface, panel, x, y)
+
+        if self.status:
+            if self.status_ok is True:
+                color = (140, 210, 160)
+            elif self.status_ok is False:
+                color = (220, 130, 130)
+            else:
+                color = (170, 185, 210)
+            status_surf = self._status_font.render(self.status, True, color)
+            status_rect = status_surf.get_rect(
+                centerx=panel.centerx,
+                top=self._action_rect.bottom + 12,
+            )
+            surface.blit(status_surf, status_rect)
+
+    def _draw_submit_footer(self, surface, panel, x, y) -> int:
         y += 12
         name_label = self._label_font.render("Enter your name", True, (150, 165, 185))
         surface.blit(name_label, (x, y))
@@ -173,12 +217,12 @@ class ScoreOverlay:
         surface.blit(name_surf, (self._input_rect.x + 12, self._input_rect.y + 8))
 
         y = self._input_rect.bottom + 18
-        self._submit_rect = pygame.Rect(0, 0, 140, 42)
-        self._submit_rect.centerx = panel.centerx
-        self._submit_rect.y = y
+        self._action_rect = pygame.Rect(0, 0, 140, 42)
+        self._action_rect.centerx = panel.centerx
+        self._action_rect.y = y
 
         can_submit = bool(self.name.strip()) and not self._submitting
-        hovered = self._submit_rect.collidepoint(pygame.mouse.get_pos())
+        hovered = self._action_rect.collidepoint(pygame.mouse.get_pos())
         if self._submitting:
             btn_color = (45, 50, 60)
             border_color = (70, 80, 95)
@@ -196,30 +240,36 @@ class ScoreOverlay:
             border_color = (70, 80, 95)
             button_text = "Submit"
 
-        pygame.draw.rect(surface, btn_color, self._submit_rect, border_radius=8)
-        pygame.draw.rect(surface, border_color, self._submit_rect, 2, border_radius=8)
-        submit_label = self._button_font.render(button_text, True, (230, 240, 235))
-        surface.blit(
-            submit_label,
-            submit_label.get_rect(center=self._submit_rect.center),
-        )
+        self._draw_button(surface, btn_color, border_color, button_text)
+        return self._action_rect.bottom
 
-        if self.status:
-            if self.status_ok is True:
-                color = (140, 210, 160)
-            elif self.status_ok is False:
-                color = (220, 130, 130)
-            else:
-                color = (170, 185, 210)
-            status_surf = self._status_font.render(self.status, True, color)
-            status_rect = status_surf.get_rect(
-                centerx=panel.centerx,
-                top=self._submit_rect.bottom + 12,
-            )
-            surface.blit(status_surf, status_rect)
+    def _draw_submitted_footer(self, surface, panel, x, y) -> int:
+        y += 16
+        self._action_rect = pygame.Rect(0, 0, 160, 42)
+        self._action_rect.centerx = panel.centerx
+        self._action_rect.y = y
+
+        hovered = self._action_rect.collidepoint(pygame.mouse.get_pos())
+        if hovered:
+            btn_color = (70, 110, 160)
+            border_color = (130, 180, 230)
+        else:
+            btn_color = (50, 85, 130)
+            border_color = (100, 145, 195)
+
+        self._draw_button(surface, btn_color, border_color, "Restart")
+        return self._action_rect.bottom
+
+    def _draw_button(self, surface, btn_color, border_color, button_text):
+        pygame.draw.rect(surface, btn_color, self._action_rect, border_radius=8)
+        pygame.draw.rect(surface, border_color, self._action_rect, 2, border_radius=8)
+        label = self._button_font.render(button_text, True, (230, 240, 235))
+        surface.blit(label, label.get_rect(center=self._action_rect.center))
 
     def _panel_height(self) -> int:
         rows = max(1, len(self.leaderboard)) if not self.leaderboard_error else 1
+        if self._submitted:
+            return 300 + rows * self.ROW_HEIGHT
         return 360 + rows * self.ROW_HEIGHT
 
     def _draw_leaderboard(self, surface, x: int, y: int, right: int) -> int:
@@ -293,7 +343,7 @@ class ScoreOverlay:
 
     def _try_submit(self):
         name = self.name.strip()
-        if not name or not self.on_submit or self._submitting:
+        if not name or not self.on_submit or self._submitting or self._submitted:
             return
 
         self._submitting = True
@@ -318,4 +368,16 @@ class ScoreOverlay:
         self.status = str(message)
         self.status_ok = bool(ok)
         if ok:
-            self.hide()
+            self._submitted = True
+            self.status = "Updating leaderboard..."
+            if display is not None:
+                self.draw(display)
+                pygame.display.flip()
+            self._load_leaderboard()
+            self.status = "Score submitted!"
+
+    def _try_restart(self):
+        if not self._submitted or not self.on_restart:
+            return
+        self.on_restart()
+        self.hide()

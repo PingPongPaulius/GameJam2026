@@ -23,6 +23,17 @@ class BuildScene:
         self.elapsed = 0.0
         self._locked = False
 
+    def reset(self, countdown_seconds=None):
+        """Return to a fresh build round."""
+        if countdown_seconds is not None:
+            self.lock_after_seconds = countdown_seconds
+        self.time_remaining = self.lock_after_seconds
+        self.elapsed = 0.0
+        self._done = False
+        self._locked = False
+        self.drag.cancel()
+        self.sidebar.unlock_palette()
+
     def handle_event(self, event): 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             item = self.sidebar.item_at(event.pos)

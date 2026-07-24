@@ -156,7 +156,7 @@ def on_score_submit(name: str, height: float, top_speed: float):
     return ok, message
 
 
-score_overlay = ScoreOverlay(on_submit=on_score_submit)
+score_overlay = ScoreOverlay(on_submit=on_score_submit)  # on_restart set after build_scene
 
 
 def _load_background_slices():
@@ -337,6 +337,30 @@ build_scene = BuildScene(
     on_timeout=start_flight,
 )
 rocket_debug_panel = RocketDebugPanel()
+
+
+def restart_game():
+    """Return to a fresh build phase after submitting a score."""
+    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
+    global max_height, max_speed, score_submit_timer, score_submit_armed
+
+    rocket.reset()
+    flight_parts.clear()
+    build_scene.reset(build_countdown_seconds)
+    phase = Phase.BUILD
+    V = 0
+    W = 0
+    UP = 0
+    camera_scroll_y = 0
+    rocket_center_x = 0.0
+    rocket_center_y = 0.0
+    max_height = 0.0
+    max_speed = 0.0
+    score_submit_timer = 0.0
+    score_submit_armed = False
+
+
+score_overlay.on_restart = restart_game
 
 
 def get_all_collisions(movable) -> list:

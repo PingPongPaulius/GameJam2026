@@ -30,6 +30,12 @@ class SlideCover:
             self.active = True
             self.start_time = pygame.time.get_ticks()
 
+    def reset(self):
+        """Snap the cover back open (unlocked)."""
+        self.active = False
+        self.covered = False
+        self.current_rect = self.start_rect.copy()
+
     def update(self):
         if not self.active:
             return
