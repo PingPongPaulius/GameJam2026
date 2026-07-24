@@ -14,6 +14,7 @@ class Rocket:
         self.heat = 0.0
         self.fuel_remaining = 0.0
         self.fuel_weight_per_unit = 1.0  # in tons per ton of fuel in the tank
+        self.acceleration = 0.0
 
     def add_part(self, part: PartInstance):
         self.parts.append(part)

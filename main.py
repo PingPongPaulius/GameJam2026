@@ -161,9 +161,11 @@ def update_flight(dt: float):
         if has_fuel and rocket.mass > 0
         else 0.0
     )
-    acceleration = drag_accel + thrust_accel - 9.81
+    rocket.acceleration = drag_accel + thrust_accel - 9.81
 
-    rocket.velocity += acceleration * dt
+
+
+    rocket.velocity += rocket.acceleration * dt
     height_delta = rocket.velocity * dt
     rocket.height = max(0.0, rocket.height + height_delta)
 
