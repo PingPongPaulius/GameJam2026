@@ -11,23 +11,31 @@ class RocketDebugPanel:
         self._label_font = pygame.font.SysFont(None, 22)
         self._value_font = pygame.font.SysFont(None, 22)
 
-    def _stat_lines(self, rocket, in_flight: bool = False) -> list[tuple[str, str]]:
+    def _stat_lines(
+        self,
+        rocket,
+        in_flight: bool = False,
+        position: tuple[float, float] | None = None,
+    ) -> list[tuple[str, str]]:
         lines = [
             ("Parts", str(len(rocket.parts))),
             ("Weight", f"{rocket.total_weight:.1f}"),
             ("Thrust", f"{rocket.total_thrust:.0f}"),
             ("Drag", f"{rocket.total_drag:.0f}"),
             ("Performance", f"{rocket.performance:.1f}"),
+        ]
+        if position is not None:
+            pos_x, pos_y = position
+            lines.append(("Position", f"{pos_x:.0f}, {pos_y:.0f}"))
+        lines += [
             ("Velocity", f"{rocket.y_velocity:.1f}"),
             ("Height", f"{rocket.height:.0f}"),
             ("xAcceleration", f"{rocket.x_acceleration:.1f}"),
             ("yAcceleration", f"{rocket.y_acceleration:.1f}"),
             ("Acceleration", f"{rocket.acceleration:.1f}"),
+            
             ("Rotation", f"{rocket.rotation * 180 / 3.14159:.2f}"),
-            (
-                "Fuel",
-                f"{rocket.fuel_remaining:.0f} / {rocket.total_fuel_capacity:.0f}",
-            ),
+            ("Fuel", f"{rocket.fuel_remaining:.0f} / {rocket.total_fuel_capacity:.0f}"),
             ("Heat", f"{rocket.heat:.1f}"),
             ("Stability", f"{rocket.stability:.1f}"),
             ("Fuel use/s", f"{rocket.total_fuel_consumption:.2f}"),
@@ -44,8 +52,14 @@ class RocketDebugPanel:
         lines.append(("Status", status))
         return lines
 
-    def draw(self, surface, rocket, in_flight: bool = False):
-        lines = self._stat_lines(rocket, in_flight)
+    def draw(
+        self,
+        surface,
+        rocket,
+        in_flight: bool = False,
+        position: tuple[float, float] | None = None,
+    ):
+        lines = self._stat_lines(rocket, in_flight, position)
         panel_w = 220
         title_height = 28
         panel_h = self.PADDING * 2 + title_height + len(lines) * self.LINE_HEIGHT
