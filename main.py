@@ -25,6 +25,11 @@ pygame.init()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
 
+# Get the desktop size and set the screen size to 80% of it
+desktop_w, desktop_h = pygame.display.get_desktop_sizes()[0]
+SCREEN_WIDTH = int(desktop_w * 0.8)
+SCREEN_HEIGHT = int(desktop_h * 0.8)
+
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 FPS = 60
