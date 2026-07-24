@@ -188,9 +188,11 @@ def update_flight(dt: float):
     global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase
     global score_submit_timer, score_submit_armed
 
+    DRAG_COEFFICIENT = 2e-5 * 10
+
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
-        -2e-5 * rocket.y_velocity ** 2 * rocket.total_drag
+        -DRAG_COEFFICIENT * rocket.y_velocity ** 2 * rocket.total_drag
     )
     y_thrust_accel = (
         (rocket.total_thrust * math.cos(rocket.rotation)) / rocket.mass
@@ -198,7 +200,7 @@ def update_flight(dt: float):
         else 0.0
     )
     x_drag_accel = (
-        -2e-5 * rocket.x_velocity ** 2 * rocket.total_drag
+        -DRAG_COEFFICIENT * rocket.x_velocity ** 2 * rocket.total_drag
     )
     x_thrust_accel = (
         (rocket.total_thrust * math.sin(rocket.rotation)) / rocket.mass
@@ -415,20 +417,35 @@ def handle_background(scroll_y: float = 0):
 
 
 def handle_camera():
-    global camera_scroll_y, rocket_center_y
+    global camera_scroll_y, rocket_center_x, rocket_center_y
 
     if phase == Phase.FLIGHT:
         if not flight_parts:
             return
-        center_y = rocket_center_y
-        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry and rocket.y_velocity > 0:
+
+        top_bound = SCREEN_HEIGHT / 2 - half_camera_boundry
+        left_bound = SCREEN_WIDTH / 2 - half_camera_boundry
+        right_bound = SCREEN_WIDTH / 2 + half_camera_boundry
+
+        if rocket_center_y < top_bound and rocket.y_velocity > 0:
             scroll = max(0.0, rocket.y_velocity - camera_scroll_speed) * dt
             rocket_center_y += scroll
             camera_scroll_y += scroll
         elif rocket.y_velocity < 0:
-            scroll = min(0.0, rocket.y_velocity + camera_scroll_speed) * dt
-            rocket_center_y -= scroll
-            camera_scroll_y = max(0.0, camera_scroll_y - scroll)
+            # Falling: unwind the scroll we built up climbing, capped at what's
+            # left to unwind so the rocket free-falls normally once back at
+            # ground level (camera_scroll_y == 0).
+            excess = min(
+                max(0.0, -rocket.y_velocity - camera_scroll_speed) * dt,
+                camera_scroll_y,
+            )
+            rocket_center_y -= excess
+            camera_scroll_y -= excess
+
+        if rocket_center_x < left_bound:
+            rocket_center_x = left_bound
+        elif rocket_center_x > right_bound:
+            rocket_center_x = right_bound
         return
 
     player = find_player()

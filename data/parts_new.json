@@ -79,7 +79,7 @@
       "drag": 0.2,
       "thrust": 40.0,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.018,
+      "fuel_consumption": 0.04,
       "sprite": "engine_basic.png"
     },
     {
@@ -90,7 +90,7 @@
       "drag": 0.25,
       "thrust": 100.0,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.068,
+      "fuel_consumption": 0.14,
       "sprite": "engine_basic.png"
     },
     {
@@ -101,7 +101,7 @@
       "drag": 0.4,
       "thrust": 300.0,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.231,
+      "fuel_consumption": 0.5,
       "sprite": "engine_basic.png"
     },
     {
@@ -112,7 +112,7 @@
       "drag": 0.2,
       "thrust": 60.0,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.035,
+      "fuel_consumption": 0.07,
       "sprite": "engine_basic.png"
     },
     {
