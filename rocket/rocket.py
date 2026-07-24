@@ -39,7 +39,7 @@ class Rocket:
 
     @property # in kN
     def total_thrust(self) -> float:
-        return sum(p.part_def.thrust for p in self.parts) * self.fuel_remaining
+        return sum(p.part_def.thrust for p in self.parts) if self.fuel_remaining > 0 else 0
 
     @property
     def total_drag(self) -> float:
