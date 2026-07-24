@@ -27,7 +27,12 @@ class BuildArea:
             if horizontal_snap_span is not None
             else step_size * (self.horizontal_snap_points - 1)
         )
-        self.side_attach_offset = side_attach_offset or slot_height * 0.6
+        # Sit just outside the widest center snap so fins/boosters hug part sides.
+        self.side_attach_offset = (
+            side_attach_offset
+            if side_attach_offset is not None
+            else self.max_center_offset() + slot_height * 0.55
+        )
         self.enable_snap_draws = enable_snap_draws
 
     def horizontal_snap_step(self) -> float:
@@ -115,6 +120,11 @@ class BuildArea:
     def is_side_offset(self, offset_x) -> bool:
         return abs(abs(offset_x) - self.side_attach_offset) < 0.01
 
+    def side_mount_dead_zone(self) -> float:
+        """How far from center the cursor must be before a side mount snaps."""
+        # Keep this well inside the side snap X so aiming at the side works.
+        return min(self.slot_height * 0.35, self.side_attach_offset * 0.4)
+
     def slot_at(self, mouse_pos, side_mount=False):
         """Returns (slot_index, offset_x) for a mouse position, or (None, 0)."""
         mx, my = mouse_pos
@@ -126,7 +136,7 @@ class BuildArea:
         dx = mx - self.anchor_x
 
         if side_mount:
-            if abs(dx) <= self.max_center_offset() + self.slot_height // 4:
+            if abs(dx) <= self.side_mount_dead_zone():
                 return None, 0.0
             return slot, math.copysign(self.side_attach_offset, dx)
 

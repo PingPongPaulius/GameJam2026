@@ -81,16 +81,21 @@ class BuildScene:
             for p in self.rocket.parts
         )
 
+    def _part_image(self, part_def, offset_x=0.0):
+        image = self.assets.get_image(part_def.sprite)
+        if part_def.part_type in SIDE_MOUNT_TYPES and offset_x < 0:
+            return pygame.transform.flip(image, True, False)
+        return image
+
     def update(self, dt):
         if self._done:
             return
         self.time_remaining = max(0.0, self.time_remaining - dt)
         self.elapsed += dt
-        if not self._locked and self.elapsed >= self.lock_after_seconds - 5:
-            self.sidebar.lock_palette()
-            self._locked = True
         if self.time_remaining == 0:
-            
+            if not self._locked:
+                self.sidebar.lock_palette()
+                self._locked = True
             self._done = True
             if self.on_timeout:
                 self.on_timeout()
@@ -106,25 +111,38 @@ class BuildScene:
         self.build_area.draw(surface)
         for instance in self.rocket.parts:
             pos = self.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
-            image = self.assets.get_image(instance.part_def.sprite)
+            image = self._part_image(instance.part_def, instance.offset_x)
             surface.blit(image, image.get_rect(center=pos))
 
         if self.drag.active:
-            image = self.assets.get_image(self.drag.part_def.sprite).copy()
-            image.set_alpha(150)
-            surface.blit(image, image.get_rect(center=self.drag.mouse_pos))
             if self.drag.target_slot is not None:
                 pos = self.build_area.slot_screen_pos(
                     self.drag.target_slot,
                     self.drag.target_offset_x,
                 )
-                valid = self._is_valid_placement(
-                    self.drag.target_slot,
-                    self.drag.target_offset_x,
-                    self.drag.part_def,
+                valid = (
+                    not self._position_occupied(
+                        self.drag.target_slot,
+                        self.drag.target_offset_x,
+                    )
+                    and self._is_valid_placement(
+                        self.drag.target_slot,
+                        self.drag.target_offset_x,
+                        self.drag.part_def,
+                    )
                 )
+                image = self._part_image(
+                    self.drag.part_def,
+                    self.drag.target_offset_x,
+                ).copy()
+                image.set_alpha(150)
+                surface.blit(image, image.get_rect(center=pos))
                 color = (0, 255, 0) if valid else (255, 80, 80)
                 pygame.draw.circle(surface, color, (int(pos[0]), int(pos[1])), 5)
+            else:
+                image = self.assets.get_image(self.drag.part_def.sprite).copy()
+                image.set_alpha(120)
+                surface.blit(image, image.get_rect(center=self.drag.mouse_pos))
 
         font = pygame.font.SysFont(None, 36)
         timer_surf = font.render(f"{self.time_remaining:0.1f}s", True, (255, 255, 255))

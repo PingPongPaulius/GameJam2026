@@ -20,7 +20,7 @@ from ui.build_sidebar import BuildSidebar
 from ui.rocket_debug_panel import RocketDebugPanel
 from ui.score_overlay import ScoreOverlay
 from ui.slide_cover import SlideCover
-from scenes.build_scene import BuildScene
+from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
 from rendering.rocket_renderer import draw_rocket
 from vector import Vector
 
@@ -372,7 +372,10 @@ def frame():
             handle_camera()
         handle_background(camera_scroll_y)
         for instance in flight_parts:
-            image = build_scene.assets.get_image(instance.instance.part_def.sprite)
+            part = instance.instance
+            image = build_scene.assets.get_image(part.part_def.sprite)
+            if part.part_def.part_type in SIDE_MOUNT_TYPES and part.offset_x < 0:
+                image = pygame.transform.flip(image, True, False)
             screen.blit(image, image.get_rect(center=instance.get_pos()))
         sidebar.draw(screen)
 
