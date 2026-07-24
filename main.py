@@ -218,6 +218,7 @@ def update_flight(dt: float):
     rocket.y_velocity += rocket.y_acceleration * dt if not land_hit else 0
     rocket.x_velocity += rocket.x_acceleration * dt if not land_hit else 0
 
+    previous_height = rocket.height
     height_delta = rocket.y_velocity * dt
     rocket.height = max(0.0, rocket.height + height_delta)
 
@@ -241,7 +242,9 @@ def update_flight(dt: float):
     UP = rocket.y_velocity
 
     # Flight ends once the rocket has left the ground and then lands again.
-    if previous_height > 1.0 and rocket.height <= 0.0 and rocket.velocity <= 0.0:
+    if previous_height > 1.0 and rocket.height <= 0.0 and rocket.y_velocity <= 0.0:
+        rocket.y_velocity = 0.0
+        rocket.x_velocity = 0.0
         rocket.velocity = 0.0
         phase = Phase.RESULTS
         score_overlay.show(max_height, max_speed)

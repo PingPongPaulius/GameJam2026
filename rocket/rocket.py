@@ -17,7 +17,7 @@ class Rocket:
         self.rotation = 0.0 #0 to 2pi 0 being straight up, pi being upside down, 2pi being straight up again
         self.heat = 0.0
         self.fuel_remaining = 0.0
-        self.fuel_weight_per_unit = 1.0  # in tons per ton of fuel in the tank
+        self.fuel_weight_per_unit = 0.5  # in tons per ton of fuel in the tank
         self.x_acceleration = 0.0
         self.y_acceleration = 0.0
         self.acceleration = 0.0

@@ -27,11 +27,8 @@ class BuildArea:
             if horizontal_snap_span is not None
             else step_size * (self.horizontal_snap_points - 1)
         )
-        # Sit just outside the widest center snap so fins/boosters hug part sides.
         self.side_attach_offset = (
-            side_attach_offset
-            if side_attach_offset is not None
-            else self.max_center_offset() + slot_height * 0.55
+            side_attach_offset if side_attach_offset is not None else slot_height * 0.6
         )
         self.enable_snap_draws = enable_snap_draws
 
