@@ -1,5 +1,7 @@
 import glob
 import re
+import math
+import random as rng
 from typing import Optional
 from enum import Enum, auto
 
@@ -18,10 +20,16 @@ from ui.rocket_debug_panel import RocketDebugPanel
 from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene
 from rendering.rocket_renderer import draw_rocket
+from vector import Vector
 
 pygame.init()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
+
+# Get the desktop size and set the screen size to 80% of it
+desktop_w, desktop_h = pygame.display.get_desktop_sizes()[0]
+SCREEN_WIDTH = int(desktop_w * 0.8)
+SCREEN_HEIGHT = int(desktop_h * 0.8)
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
@@ -40,6 +48,8 @@ class InstanceWrapper:
         self.x = pos[0]
         self.y = pos[1]
         self.instance = instance
+        self.vector = Vector(self.x, self.y)
+        self.FALL_X = 0
 
     def get_pos(self):
         return (self.x, self.y)
@@ -111,6 +121,10 @@ build_area = BuildArea(
 
 flight_parts = []
 V = 0
+W = 0
+A = 20
+FALL = 0
+UP = 0
 camera_scroll_y = 0
 _background_cache = {}
 _background_slices = []
@@ -138,7 +152,26 @@ def _max_scroll() -> int:
 
 
 def update_flight(dt: float):
-    global V
+    global V, W, A, FALL, UP
+
+    if rocket.fuel_remaining > 0:
+        UP = V * dt
+    else:
+        UP = -(W+FALL) * dt
+
+    for instance in flight_parts:
+        instance.y -= UP
+        if UP < 0:
+            if instance.FALL_X == 0:
+                instance.FALL_X = rng.random()-0.5
+            instance.x += instance.FALL_X
+
+
+    V += A
+    A = A - math.log(A)
+    if rocket.fuel_remaining <= 0:
+        FALL += 1
+
     rocket.velocity = V
     if V > 0:
         rocket.height += V * dt
@@ -154,7 +187,7 @@ def update_flight(dt: float):
 
 
 def start_flight():
-    global phase, V, camera_scroll_y
+    global phase, V, W, camera_scroll_y
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -170,6 +203,7 @@ def start_flight():
     for instance in build_scene.rocket.parts:
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
+        W += instance.part_def.weight
     # This is now using Kot's calculations from the Canva.
     # It can be found in rocket.py, lines 111-138.
     V = rocket.performance
@@ -252,8 +286,14 @@ def handle_camera():
         if not flight_parts:
             return
         center_y = sum(part.y for part in flight_parts) / len(flight_parts)
-        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry:
+        if center_y < SCREEN_HEIGHT / 2 - half_camera_boundry and UP > 0:
             scroll = (V - camera_scroll_speed) * dt
+            for part in flight_parts:
+                part.y += scroll
+            camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
+        if UP < 0:
+            d = (W+FALL)
+            scroll = -(d - camera_scroll_speed) * dt
             for part in flight_parts:
                 part.y += scroll
             camera_scroll_y = min(camera_scroll_y + scroll, _max_scroll())
@@ -288,8 +328,6 @@ def frame():
     elif phase == Phase.FLIGHT:
         # Velocity updated moved to its own function above in this file
         update_flight(dt)
-        for instance in flight_parts:
-            instance.y -= V * dt
         handle_camera()
         handle_background(camera_scroll_y)
         for instance in flight_parts:
