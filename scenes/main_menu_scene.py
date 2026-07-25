@@ -82,7 +82,8 @@ class MainMenuScene:
             self.on_phase_change(Phase.BUILD)
 
     def open_options(self):
-        print("Opening options!")
+        if self.on_phase_change:
+            self.on_phase_change(Phase.OPTIONS)
 
     def quit_game(self):
         pygame.quit()

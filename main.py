@@ -34,6 +34,7 @@ from ui.score_overlay import ScoreOverlay
 from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
 from scenes.main_menu_scene import MainMenuScene
+from scenes.options_scene import OptionsScene
 from rendering.rocket_renderer import draw_rocket
 from rendering.engine_flame import EngineFlameAnimator
 from vector import Vector
@@ -170,7 +171,14 @@ async def on_score_submit(
 
 def set_phase(new_phase):
     global phase
+    previous = phase
     phase = new_phase
+
+    menu_like = (Phase.MENU, Phase.OPTIONS)
+    if new_phase in menu_like:
+        audio_manager.play_menu_music()
+    elif previous in menu_like:
+        audio_manager.stop_music()
 
 
 def return_to_menu():
@@ -204,7 +212,7 @@ def return_to_menu():
     if catalogs_ready:
         apply_catalogs_to_game()
 
-    phase = Phase.MENU
+    set_phase(Phase.MENU)
 
 
 score_overlay = ScoreOverlay(on_submit=on_score_submit)  # on_restart set after build_scene
@@ -458,6 +466,7 @@ def start_flight():
     phase = Phase.FLIGHT
     flight_parts.clear()
     explosion_manager.clear()
+    audio_manager.on_flight_start()
     camera_scroll_y = 0
     camera_scroll_x = 0.0
     max_height = 0.0
@@ -519,6 +528,11 @@ main_menu_scene = MainMenuScene(
     screen,
     on_phase_change=set_phase,
     can_start=catalogs_are_ready,
+)
+options_scene = OptionsScene(
+    screen,
+    audio=audio_manager,
+    on_phase_change=set_phase,
 )
 rocket_debug_panel = RocketDebugPanel()
 
@@ -673,6 +687,9 @@ async def restart_game() -> bool:
 
     flight_parts.clear()
     explosion_manager.clear()
+    audio_manager.stop_music()
+    if rocket is not None:
+        audio_manager.update_from_rocket(rocket, Phase.BUILD)
     phase = Phase.BUILD
     V = 0
     W = 0
@@ -871,14 +888,16 @@ async def frame():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return False
-        if (
-            event.type == pygame.KEYDOWN
-            and event.key == pygame.K_ESCAPE
-            and phase != Phase.MENU
-        ):
-            return_to_menu()
-            continue
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+            if phase == Phase.OPTIONS:
+                set_phase(Phase.MENU)
+                continue
+            if phase != Phase.MENU:
+                return_to_menu()
+                continue
         if score_overlay.visible and score_overlay.handle_event(event):
+            continue
+        if phase == Phase.OPTIONS and options_scene.handle_event(event):
             continue
         if phase == Phase.BUILD and build_scene is not None:
             build_scene.handle_event(event)
@@ -887,6 +906,9 @@ async def frame():
     if phase == Phase.MENU:
         main_menu_scene.update(dt)
         main_menu_scene.draw(screen)
+    elif phase == Phase.OPTIONS:
+        options_scene.update(dt)
+        options_scene.draw(screen)
     if phase == Phase.BUILD and build_scene is not None:
         handle_background()
         build_scene.update(dt)
@@ -955,6 +977,7 @@ async def frame():
 
 async def main():
     _background_slices.extend(_load_background_slices())
+    audio_manager.play_menu_music()
     asyncio.create_task(refresh_catalogs_for_menu())
     running = True
     while running:

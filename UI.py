@@ -112,3 +112,74 @@ class Button:
     def shade_color(self, color: tuple, amount: int) -> tuple:
         """Positive amount lightens, negative darkens."""
         return tuple(max(0, min(255, c + amount)) for c in color)
+
+
+class Slider:
+    """Horizontal volume-style slider. Value is 0.0–1.0."""
+
+    TRACK_HEIGHT = 8
+    HANDLE_RADIUS = 10
+
+    def __init__(
+        self,
+        rect: pygame.Rect,
+        value: float = 1.0,
+        on_change=None,
+        track_color=(80, 80, 80),
+        fill_color=(220, 200, 40),
+        handle_color=(255, 255, 255),
+    ):
+        self.rect = pygame.Rect(rect)
+        self.value = max(0.0, min(1.0, value))
+        self.on_change = on_change
+        self.track_color = track_color
+        self.fill_color = fill_color
+        self.handle_color = handle_color
+        self._dragging = False
+
+    def handle_event(self, event) -> bool:
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self._hit_area().collidepoint(event.pos):
+                self._dragging = True
+                self._set_from_mouse(event.pos[0])
+                return True
+        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            if self._dragging:
+                self._dragging = False
+                return True
+        elif event.type == pygame.MOUSEMOTION and self._dragging:
+            self._set_from_mouse(event.pos[0])
+            return True
+        return False
+
+    def draw(self, surface):
+        track = pygame.Rect(
+            self.rect.x,
+            self.rect.centery - self.TRACK_HEIGHT // 2,
+            self.rect.width,
+            self.TRACK_HEIGHT,
+        )
+        pygame.draw.rect(surface, self.track_color, track, border_radius=4)
+        fill_w = int(self.rect.width * self.value)
+        if fill_w > 0:
+            fill = pygame.Rect(track.x, track.y, fill_w, track.height)
+            pygame.draw.rect(surface, self.fill_color, fill, border_radius=4)
+        handle_x = self.rect.x + int(self.rect.width * self.value)
+        pygame.draw.circle(
+            surface, self.handle_color, (handle_x, self.rect.centery), self.HANDLE_RADIUS
+        )
+
+    def _hit_area(self) -> pygame.Rect:
+        pad = self.HANDLE_RADIUS + 4
+        return self.rect.inflate(pad * 2, pad * 2)
+
+    def _set_from_mouse(self, mouse_x: int):
+        if self.rect.width <= 0:
+            return
+        t = (mouse_x - self.rect.x) / self.rect.width
+        value = max(0.0, min(1.0, t))
+        if abs(value - self.value) < 1e-6:
+            return
+        self.value = value
+        if self.on_change:
+            self.on_change(self.value)
