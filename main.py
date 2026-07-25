@@ -221,7 +221,7 @@ def update_flight(dt: float):
             _show_score_overlay()
         return
 
-    DRAG_COEFFICIENT = 2e-5 * 30
+    DRAG_COEFFICIENT = 2e-5 * 30 * rocket.drag_reduction_factor
     THRUST_COEFFICIENT = 10
 
     has_fuel = rocket.fuel_remaining > 0
@@ -404,6 +404,8 @@ def start_flight():
     rocket.rotation = 0.0
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
+    rocket.rotation_acceleration = 0.0
+    rocket.drag_reduction_factor = rocket.min_drag_reduction_factor
     for instance in build_scene.rocket.parts:
         instance.gimbal_angle = 0.0
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)

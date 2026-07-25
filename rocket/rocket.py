@@ -29,7 +29,13 @@ class Rocket:
         self.COM_x = 0.0
         self.COT_x= 0.0
         self.pilot_attributes = (0,0,0,0)
-        
+        self.drag_reduction_factor = 1.0
+
+    @property
+    def min_drag_reduction_factor(self) -> float:
+        if not self.parts:
+            return 1.0
+        return min(p.part_def.drag_reduction_factor for p in self.parts if p.part_def.cone)
 
     def add_part(self, part: PartInstance):
         self.parts.append(part)
