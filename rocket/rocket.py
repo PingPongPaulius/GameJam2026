@@ -35,7 +35,9 @@ class Rocket:
     def min_drag_reduction_factor(self) -> float:
         if not self.parts:
             return 1.0
-        return min(p.part_def.drag_reduction_factor for p in self.parts if p.part_def.cone) * self.pilot_attributes[3]
+        x = [p.part_def.drag_reduction_factor for p in self.parts if p.part_def.cone]
+        x.append(1.0)
+        return min(x) * self.pilot_attributes[3]
 
     def add_part(self, part: PartInstance):
         self.parts.append(part)
