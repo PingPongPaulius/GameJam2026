@@ -141,6 +141,7 @@ V = 0
 W = 0
 UP = 0
 camera_scroll_y = 0
+camera_scroll_x = 0.0
 rocket_center_x = 0.0
 rocket_center_y = 0.0
 max_height = 0.0
@@ -190,22 +191,23 @@ def update_flight(dt: float):
     global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase
     global score_submit_timer, score_submit_armed
 
-    DRAG_COEFFICIENT = 2e-5 * 10
+    DRAG_COEFFICIENT = 2e-5 * 30
+    THRUST_COEFFICIENT = 2
 
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
-        -DRAG_COEFFICIENT * rocket.y_velocity ** 2 * rocket.total_drag
+        -DRAG_COEFFICIENT * rocket.y_velocity * abs(rocket.y_velocity) * rocket.total_drag
     )
     y_thrust_accel = (
-        (rocket.total_thrust * math.cos(rocket.rotation)) / rocket.mass
+        (THRUST_COEFFICIENT * rocket.total_thrust * math.cos(rocket.rotation)) / rocket.mass
         if has_fuel and rocket.mass > 0
         else 0.0
     )
     x_drag_accel = (
-        -DRAG_COEFFICIENT * rocket.x_velocity ** 2 * rocket.total_drag
+        -DRAG_COEFFICIENT * rocket.x_velocity * abs(rocket.x_velocity) * rocket.total_drag
     )
     x_thrust_accel = (
-        (rocket.total_thrust * math.sin(rocket.rotation)) / rocket.mass
+        (THRUST_COEFFICIENT * rocket.total_thrust * math.sin(rocket.rotation)) / rocket.mass
         if has_fuel and rocket.mass > 0
         else 0.0
     )
@@ -292,7 +294,7 @@ def update_flight(dt: float):
 
 
 def start_flight():
-    global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
+    global phase, V, W, camera_scroll_y, camera_scroll_x, rocket_center_x, rocket_center_y
     global max_height, max_speed, score_submit_timer, score_submit_armed
     errors = rocket.validate()
     if errors:
@@ -305,6 +307,7 @@ def start_flight():
     phase = Phase.FLIGHT
     flight_parts.clear()
     camera_scroll_y = 0
+    camera_scroll_x = 0.0
     max_height = 0.0
     max_speed = 0.0
     score_submit_timer = 0.0
@@ -354,7 +357,7 @@ rocket_debug_panel = RocketDebugPanel()
 
 def restart_game():
     """Return to a fresh build phase after submitting a score."""
-    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
+    global phase, V, W, UP, camera_scroll_y, camera_scroll_x, rocket_center_x, rocket_center_y
     global max_height, max_speed, score_submit_timer, score_submit_armed
 
     rocket.reset()
@@ -365,6 +368,7 @@ def restart_game():
     W = 0
     UP = 0
     camera_scroll_y = 0
+    camera_scroll_x = 0.0
     rocket_center_x = 0.0
     rocket_center_y = 0.0
     max_height = 0.0
@@ -425,14 +429,18 @@ def _get_background(path: str):
     return _background_cache[path]
 
 
-def handle_background(scroll_y: float = 0):
+def handle_background(scroll_y: float = 0, scroll_x: float = 0):
     if not _background_slices:
         return
 
     slice_height = _background_slices[0].get_height()
     slice_width = _background_slices[0].get_width()
-    scroll_offset = max(0, int(scroll_y)) 
+    scroll_offset = max(0, int(scroll_y))
     stack_bottom = SCREEN_HEIGHT + scroll_offset
+
+    # Background moves opposite to sideways rocket movement, giving a
+    # parallax feel of the camera panning with the rocket.
+    x_offset = int(scroll_x) % slice_width
 
     # Draw enough vertical tiles to fill the screen. Past the authored stack,
     # keep repeating the topmost slice so flight can go forever.
@@ -449,12 +457,12 @@ def handle_background(scroll_y: float = 0):
         y = stack_bottom - (index + 1) * slice_height
         if y + slice_height < 0 or y > SCREEN_HEIGHT:
             continue
-        for x in range(0, SCREEN_WIDTH, slice_width):
+        for x in range(-x_offset - slice_width, SCREEN_WIDTH + slice_width, slice_width):
             screen.blit(slice_image, (x, y))
 
 
 def handle_camera():
-    global camera_scroll_y, rocket_center_x, rocket_center_y
+    global camera_scroll_y, camera_scroll_x, rocket_center_x, rocket_center_y
 
     if phase == Phase.FLIGHT:
         if not flight_parts:
@@ -480,8 +488,10 @@ def handle_camera():
             camera_scroll_y -= excess
 
         if rocket_center_x < left_bound:
+            camera_scroll_x -= left_bound - rocket_center_x
             rocket_center_x = left_bound
         elif rocket_center_x > right_bound:
+            camera_scroll_x += rocket_center_x - right_bound
             rocket_center_x = right_bound
         return
 
@@ -519,7 +529,7 @@ def frame():
             audio_manager.update_from_rocket(rocket, phase)
             handle_camera()
         update_flight_part_positions()
-        handle_background(camera_scroll_y)
+        handle_background(camera_scroll_y, camera_scroll_x)
         rotation_degrees = -math.degrees(rocket.rotation)
         for instance in flight_parts:
             part = instance.instance
