@@ -8,3 +8,5 @@ class PartType(Enum):
     BOOSTER = auto()
     PARACHUTE = auto()
     PAYLOAD = auto()
+    HEAT_SHIELD = auto()
+    COOLING_SYSTEM = auto()
