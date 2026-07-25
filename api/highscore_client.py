@@ -4,62 +4,26 @@ import json
 import secrets
 import sys
 import time
-import urllib.error
-import urllib.request
 
 from config import HIGHSCORE_API_BASE, HIGHSCORE_HMAC_SECRET
+from api.http_client import (
+    DEFAULT_TIMEOUT_SECONDS,
+    get_urllib,
+    post_urllib,
+    web_http,
+)
 
 API_BASE = HIGHSCORE_API_BASE.rstrip("/")
 HIGHSCORES_URL = f"{API_BASE}/api/highscores"
-DEFAULT_TIMEOUT_SECONDS = 10
 
 _IS_WEB = sys.platform == "emscripten"
-_WEB_FETCH_READY = False
 
-_WEB_FETCH_JS = """
-window.HighscoreFetch = {
-  GET: function * GET(url) {
-    var content = null;
-    var error = null;
-    var done = false;
-    fetch(url, { method: 'GET', headers: { 'Accept': 'application/json' } })
-      .then(function(resp) {
-        return resp.text().then(function(text) {
-          content = JSON.stringify({ status: resp.status, body: text });
-          done = true;
-        });
-      })
-      .catch(function(err) {
-        error = String(err);
-        done = true;
-      });
-    while (!done) { yield; }
-    yield error ? JSON.stringify({ status: 0, body: error }) : content;
-  },
-  POST: function * POST(url, body) {
-    var content = null;
-    var error = null;
-    var done = false;
-    fetch(url, {
-      method: 'POST',
-      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-      body: body
-    })
-      .then(function(resp) {
-        return resp.text().then(function(text) {
-          content = JSON.stringify({ status: resp.status, body: text });
-          done = true;
-        });
-      })
-      .catch(function(err) {
-        error = String(err);
-        done = true;
-      });
-    while (!done) { yield; }
-    yield error ? JSON.stringify({ status: 0, body: error }) : content;
-  }
-};
-"""
+ROCKET_SLOT_KEYS = (
+    "nose_cone_id",
+    "fuel_tank_id",
+    "engine_id",
+    "fin_id",
+)
 
 
 def get_hmac_secret() -> str:
@@ -71,19 +35,35 @@ def format_number(value: float | int) -> str:
     return "0" if formatted == "-0" else formatted
 
 
+def normalize_rocket(rocket: dict) -> dict[str, str]:
+    missing = [key for key in ROCKET_SLOT_KEYS if not rocket.get(key)]
+    if missing:
+        raise ValueError(f"Rocket missing required slots: {', '.join(missing)}")
+    return {key: str(rocket[key]) for key in ROCKET_SLOT_KEYS}
+
+
 def sign_highscore(
     name: str,
     height: float,
     secret: str,
+    pilot_id: int | str,
+    rocket: dict,
     top_speed: float | None = None,
 ) -> dict:
+    rocket = normalize_rocket(rocket)
     timestamp = int(time.time())
     nonce = secrets.token_hex(16)
     top = "" if top_speed is None else format_number(top_speed)
+    pilot = str(pilot_id)
     canonical = (
         f"name={name}"
         f"&height={format_number(height)}"
         f"&top_speed={top}"
+        f"&pilot_id={pilot}"
+        f"&nose_cone_id={rocket['nose_cone_id']}"
+        f"&fuel_tank_id={rocket['fuel_tank_id']}"
+        f"&engine_id={rocket['engine_id']}"
+        f"&fin_id={rocket['fin_id']}"
         f"&timestamp={timestamp}"
         f"&nonce={nonce}"
     )
@@ -96,6 +76,8 @@ def sign_highscore(
     payload = {
         "name": name,
         "height": height,
+        "pilot_id": int(pilot_id) if str(pilot_id).isdigit() else pilot_id,
+        "rocket": rocket,
         "timestamp": timestamp,
         "nonce": nonce,
         "signature": signature,
@@ -103,28 +85,6 @@ def sign_highscore(
     if top_speed is not None:
         payload["top_speed"] = top_speed
     return payload
-
-
-def _ensure_web_fetch() -> None:
-    global _WEB_FETCH_READY
-    if _WEB_FETCH_READY:
-        return
-    import platform
-
-    platform.window.eval(_WEB_FETCH_JS)
-    _WEB_FETCH_READY = True
-
-
-async def _web_http(method: str, url: str, body: str | None = None) -> tuple[int, str]:
-    import platform
-
-    _ensure_web_fetch()
-    if method == "GET":
-        raw = await platform.jsiter(platform.window.HighscoreFetch.GET(url))
-    else:
-        raw = await platform.jsiter(platform.window.HighscoreFetch.POST(url, body or "{}"))
-    data = json.loads(raw)
-    return int(data.get("status") or 0), str(data.get("body") or "")
 
 
 def _parse_leaderboard_payload(raw: str) -> tuple[bool, list | str]:
@@ -141,70 +101,60 @@ def _parse_leaderboard_payload(raw: str) -> tuple[bool, list | str]:
 
 
 def _submit_urllib(payload: dict, timeout: float) -> tuple[bool, str]:
-    body = json.dumps(payload).encode("utf-8")
-    request = urllib.request.Request(
-        HIGHSCORES_URL,
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        },
-        method="POST",
-    )
+    status, raw = post_urllib(HIGHSCORES_URL, json.dumps(payload).encode("utf-8"), timeout)
+    if 200 <= status < 300:
+        return True, "Score submitted!"
+    if status <= 0:
+        return False, raw or "Network error"
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            raw = response.read().decode("utf-8", errors="replace")
-            if 200 <= response.status < 300:
-                return True, "Score submitted!"
-            return False, f"API error ({response.status}): {raw or 'unknown'}"
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        try:
-            data = json.loads(detail) if detail else {}
-            message = data.get("message") or data.get("error") or detail
-        except json.JSONDecodeError:
-            message = detail or exc.reason
-        return False, f"Submit failed ({exc.code}): {message}"
-    except urllib.error.URLError as exc:
-        return False, f"Network error: {exc.reason}"
-    except TimeoutError:
-        return False, "Request timed out"
+        data = json.loads(raw) if raw else {}
+        message = data.get("message") or data.get("error") or raw
+    except json.JSONDecodeError:
+        message = raw or "unknown"
+    return False, f"Submit failed ({status}): {message}"
 
 
 def _fetch_urllib(url: str, timeout: float) -> tuple[bool, list | str]:
-    request = urllib.request.Request(url, headers={"Accept": "application/json"}, method="GET")
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:
-            return _parse_leaderboard_payload(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        return False, f"Fetch failed ({exc.code}): {detail or exc.reason}"
-    except urllib.error.URLError as exc:
-        return False, f"Network error: {exc.reason}"
-    except TimeoutError:
-        return False, "Request timed out"
+    status, raw = get_urllib(url, timeout)
+    if status <= 0:
+        return False, raw or "Network error"
+    if not (200 <= status < 300):
+        return False, f"Fetch failed ({status}): {raw or 'unknown'}"
+    return _parse_leaderboard_payload(raw)
 
 
 async def submit_highscore(
     name: str,
     height: float,
+    pilot_id: int | str,
+    rocket: dict,
     top_speed: float | None = None,
     secret: str | None = None,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> tuple[bool, str]:
     """
-    Sign and POST a highscore.
+    Sign and POST a highscore (with pilot + rocket composition).
     Returns (ok, message).
     """
     secret = (secret if secret is not None else get_hmac_secret()).strip()
     if not secret or secret == "replace-with-shared-secret":
         return False, "Set HIGHSCORE_HMAC_SECRET in config.local.py"
 
-    payload = sign_highscore(name, height, secret, top_speed=top_speed)
+    try:
+        payload = sign_highscore(
+            name,
+            height,
+            secret,
+            pilot_id=pilot_id,
+            rocket=rocket,
+            top_speed=top_speed,
+        )
+    except ValueError as exc:
+        return False, str(exc)
 
     if _IS_WEB:
         try:
-            status, raw = await _web_http("POST", HIGHSCORES_URL, json.dumps(payload))
+            status, raw = await web_http("POST", HIGHSCORES_URL, json.dumps(payload))
         except Exception as exc:
             return False, f"Network error: {exc}"
         if 200 <= status < 300:
@@ -230,7 +180,7 @@ async def fetch_highscores(
 
     if _IS_WEB:
         try:
-            status, raw = await _web_http("GET", url)
+            status, raw = await web_http("GET", url)
         except Exception as exc:
             return False, f"Network error: {exc}"
         if status <= 0:

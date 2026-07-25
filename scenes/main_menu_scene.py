@@ -5,8 +5,10 @@ from manager.asset_manager import AssetManager
 from UI import Button, COLORS
 
 class MainMenuScene:
-    def __init__(self, screen, on_phase_change=None):
+    def __init__(self, screen, on_phase_change=None, can_start=None):
         self.on_phase_change = on_phase_change
+        self.can_start = can_start
+        self.status_text = "Loading parts & pilots..."
         self.game_title = "60 seconds to launch"
         self.game_title_font= "Starjedi"
         self.game_title_font_size = 60
@@ -16,6 +18,7 @@ class MainMenuScene:
         self.buttons = {}
         self.screen_width, self.screen_height = screen.get_size()
         self.center_x = self.screen_width / 2
+        self._status_font = pygame.font.SysFont(None, 24)
 
         button_y_start = 300
         button_spacing = 10
@@ -30,8 +33,11 @@ class MainMenuScene:
             self.center_x, button_y_start, button_spacing, padding=button_padding,
             bg_color=COLORS["black"], text_color=COLORS["white"]
         )
+        self._start_button = self.buttons[0]
 
     def update(self, dt):
+        ready = True if self.can_start is None else bool(self.can_start())
+        self._start_button.active = ready
         for button in self.buttons:
             button.update()
 
@@ -51,6 +57,11 @@ class MainMenuScene:
         for button in self.buttons:
             button.render(screen)
 
+        if self.status_text:
+            status_surf = self._status_font.render(self.status_text, True, COLORS["white"])
+            status_rect = status_surf.get_rect(center=(self.center_x, self.screen_height - 40))
+            screen.blit(status_surf, status_rect)
+
     def _create_menu_buttons(self, items, center_x, start_y, spacing=20, padding=(20, 10),
                     bg_color=(200, 200, 200), text_color=(255, 255, 255)):
         buttons = []
@@ -64,7 +75,9 @@ class MainMenuScene:
         return buttons
 
     def start_game(self):
-        print("Starting game!")  # swap for scene transition
+        if self.can_start is not None and not self.can_start():
+            return
+        print("Starting game!")
         if self.on_phase_change:
             self.on_phase_change(Phase.BUILD)
 
