@@ -18,13 +18,6 @@ HIGHSCORES_URL = f"{API_BASE}/api/highscores"
 
 _IS_WEB = sys.platform == "emscripten"
 
-ROCKET_SLOT_KEYS = (
-    "nose_cone_id",
-    "fuel_tank_id",
-    "engine_id",
-    "fin_id",
-)
-
 
 def get_hmac_secret() -> str:
     return (HIGHSCORE_HMAC_SECRET or "").strip()
@@ -35,11 +28,35 @@ def format_number(value: float | int) -> str:
     return "0" if formatted == "-0" else formatted
 
 
-def normalize_rocket(rocket: dict) -> dict[str, str]:
-    missing = [key for key in ROCKET_SLOT_KEYS if not rocket.get(key)]
-    if missing:
-        raise ValueError(f"Rocket missing required slots: {', '.join(missing)}")
-    return {key: str(rocket[key]) for key in ROCKET_SLOT_KEYS}
+def normalize_rocket_parts(rocket: dict) -> list[dict]:
+    parts = rocket.get("parts") if isinstance(rocket, dict) else None
+    if not isinstance(parts, list) or not parts:
+        raise ValueError("Rocket must include at least one part")
+
+    normalized = []
+    seen_orders = set()
+    for entry in parts:
+        if not isinstance(entry, dict):
+            raise ValueError("Each rocket part must be an object")
+        part_id = entry.get("part_id")
+        if not part_id:
+            raise ValueError("Each rocket part needs a part_id")
+        if entry.get("slot_order") is None:
+            raise ValueError("Each rocket part needs a slot_order")
+        slot_order = int(entry["slot_order"])
+        if slot_order < 0:
+            raise ValueError("slot_order must be >= 0")
+        if slot_order in seen_orders:
+            raise ValueError(f"Duplicate slot_order: {slot_order}")
+        seen_orders.add(slot_order)
+        normalized.append({"part_id": str(part_id), "slot_order": slot_order})
+
+    normalized.sort(key=lambda part: part["slot_order"])
+    return normalized
+
+
+def format_parts_canonical(parts: list[dict]) -> str:
+    return ",".join(f"{part['slot_order']}:{part['part_id']}" for part in parts)
 
 
 def sign_highscore(
@@ -50,7 +67,7 @@ def sign_highscore(
     rocket: dict,
     top_speed: float | None = None,
 ) -> dict:
-    rocket = normalize_rocket(rocket)
+    parts = normalize_rocket_parts(rocket)
     timestamp = int(time.time())
     nonce = secrets.token_hex(16)
     top = "" if top_speed is None else format_number(top_speed)
@@ -60,10 +77,7 @@ def sign_highscore(
         f"&height={format_number(height)}"
         f"&top_speed={top}"
         f"&pilot_id={pilot}"
-        f"&nose_cone_id={rocket['nose_cone_id']}"
-        f"&fuel_tank_id={rocket['fuel_tank_id']}"
-        f"&engine_id={rocket['engine_id']}"
-        f"&fin_id={rocket['fin_id']}"
+        f"&parts={format_parts_canonical(parts)}"
         f"&timestamp={timestamp}"
         f"&nonce={nonce}"
     )
@@ -77,7 +91,7 @@ def sign_highscore(
         "name": name,
         "height": height,
         "pilot_id": int(pilot_id) if str(pilot_id).isdigit() else pilot_id,
-        "rocket": rocket,
+        "rocket": {"parts": parts},
         "timestamp": timestamp,
         "nonce": nonce,
         "signature": signature,
@@ -133,7 +147,7 @@ async def submit_highscore(
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> tuple[bool, str]:
     """
-    Sign and POST a highscore (with pilot + rocket composition).
+    Sign and POST a highscore (with pilot + full rocket parts list).
     Returns (ok, message).
     """
     secret = (secret if secret is not None else get_hmac_secret()).strip()

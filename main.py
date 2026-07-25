@@ -104,41 +104,34 @@ max_height = 0.0
 max_speed = 0.0
 SCORE_SUBMIT_DELAY = 3.0
 EXPLOSION_SCORE_DELAY = 1.2
+PAD_STUCK_TIMEOUT = 5.0
+PAD_STUCK_SPEED_EPS = 0.5
 score_submit_timer = 0.0
 score_submit_armed = False
 rocket_destroyed = False
+pad_stuck_timer = 0.0
 _background_cache = {}
 _background_slices = []
 
 
 def _flight_rocket_payload() -> dict | None:
-    """Pick one part id per required slot from the flown rocket."""
-    slot_types = {
-        "nose_cone_id": PartType.NOSE_CONE,
-        "fuel_tank_id": PartType.FUEL_TANK,
-        "engine_id": PartType.ENGINE,
-        "fin_id": PartType.FIN,
-    }
-    by_type = {}
-    source_parts = rocket.parts if rocket is not None else []
-    for part in source_parts:
-        part_type = part.part_def.part_type
-        if part_type in slot_types.values() and part_type not in by_type:
-            by_type[part_type] = part.part_def.id
+    """Build rocket.parts payload from every flown part, ordered top-to-bottom."""
+    if rocket is None or not rocket.parts:
+        return None
 
-    rocket_payload = {}
-    for key, part_type in slot_types.items():
-        part_id = by_type.get(part_type)
-        if not part_id:
-            return None
-        rocket_payload[key] = part_id
-    return rocket_payload
+    ordered = sorted(rocket.parts, key=lambda part: (part.slot_index, part.offset_x))
+    return {
+        "parts": [
+            {"part_id": part.part_def.id, "slot_order": index}
+            for index, part in enumerate(ordered)
+        ]
+    }
 
 
 async def on_score_submit(name: str, height: float, top_speed: float):
     rocket_payload = _flight_rocket_payload()
     if rocket_payload is None:
-        message = "Rocket needs a nose cone, fuel tank, engine, and fins to submit"
+        message = "Rocket needs at least one part to submit"
         print(f"Highscore API: ok=False ({message})")
         return False, message
 
@@ -152,7 +145,7 @@ async def on_score_submit(name: str, height: float, top_speed: float):
     print(
         f"Highscore API: ok={ok} name={name!r} height={height:.0f} "
         f"top_speed={top_speed:.1f} pilot_id={selected_pilot} "
-        f"rocket={rocket_payload} ({message})"
+        f"parts={len(rocket_payload['parts'])} ({message})"
     )
     return ok, message
 
@@ -160,6 +153,39 @@ async def on_score_submit(name: str, height: float, top_speed: float):
 def set_phase(new_phase):
     global phase
     phase = new_phase
+
+
+def return_to_menu():
+    """Leave build/flight/results and return to the main menu."""
+    global phase, V, W, UP, camera_scroll_y, camera_scroll_x
+    global rocket_center_x, rocket_center_y, max_height, max_speed
+    global score_submit_timer, score_submit_armed, rocket_destroyed, pad_stuck_timer
+
+    score_overlay.hide()
+    flight_parts.clear()
+    explosion_manager.clear()
+    if rocket is not None:
+        audio_manager.update_from_rocket(rocket, Phase.MENU)
+
+    V = 0
+    W = 0
+    UP = 0
+    camera_scroll_y = 0
+    camera_scroll_x = 0.0
+    rocket_center_x = 0.0
+    rocket_center_y = 0.0
+    max_height = 0.0
+    max_speed = 0.0
+    score_submit_timer = 0.0
+    score_submit_armed = False
+    rocket_destroyed = False
+    pad_stuck_timer = 0.0
+
+    if catalogs_ready:
+        apply_catalogs_to_game()
+
+    phase = Phase.MENU
+
 
 score_overlay = ScoreOverlay(on_submit=on_score_submit)  # on_restart set after build_scene
 
@@ -208,7 +234,7 @@ def _trigger_explosion(failure):
 
 def update_flight(dt: float):
     global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase 
-    global score_submit_timer, score_submit_armed, rocket_destroyed
+    global score_submit_timer, score_submit_armed, rocket_destroyed, pad_stuck_timer
 
 
 
@@ -276,6 +302,8 @@ def update_flight(dt: float):
 
     cog_y = rocket.center_of_gravity_y
     gimbal_torque = 0.0
+
+    # lOOPING THROUGH ALL ROCKET PARTTS
     for p in rocket.parts:
         if not p.part_def.gimbal:
             continue
@@ -285,7 +313,18 @@ def update_flight(dt: float):
         if has_fuel and rocket.moment_of_inertia > 0:
             engine_dy = abs((p.slot_index * 64.0 / Rocket.VERTICAL_UNIT) - cog_y)
             gimbal_torque += p.part_def.thrust * engine_dy * math.sin(p.gimbal_angle)
-
+        
+        # Add logic to check that rocket has required framing based on engine type
+        if rocket.mass < 7:
+            # Add shit later
+             print("Rocket is too light")
+        elif rocket.mass > 7 and rocket.mass < 10 and p.part_def.id == "body_reinforced" or p.part_def.id == "body_heavy_duty":
+            # Add shit later
+            print("Rocket is too light")
+        elif rocket.mass > 10 and p.part_def.id == "body_reinforced":
+            # Add shit later
+            print("Rocket is too heavy")
+        
     gimbal_torque_accel = gimbal_torque / rocket.moment_of_inertia if rocket.moment_of_inertia > 0 else 0.0
 
     rocket.rotation_acceleration = (
@@ -358,6 +397,15 @@ def update_flight(dt: float):
         _show_score_overlay()
         return
 
+    # Stuck on the pad with (near) zero speed — open highscore after a short wait.
+    if rocket.height <= 0 and rocket.velocity < PAD_STUCK_SPEED_EPS:
+        pad_stuck_timer += dt
+        if pad_stuck_timer >= PAD_STUCK_TIMEOUT:
+            _show_score_overlay()
+            return
+    else:
+        pad_stuck_timer = 0.0
+
     # 3s after the rocket starts falling, open score submit.
     if (
         not score_submit_armed
@@ -376,6 +424,7 @@ def update_flight(dt: float):
 def start_flight():
     global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
     global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
+    global pad_stuck_timer
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -394,6 +443,7 @@ def start_flight():
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
+    pad_stuck_timer = 0.0
     V = 0
     W = 0
     rocket.height = 0.0
@@ -571,6 +621,7 @@ async def restart_game() -> bool:
     """Reload catalogs (API or local fallback), then return to a fresh build phase."""
     global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
     global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
+    global pad_stuck_timer
 
     if rng.randint(1, 100) > 99:
         selected_pilot = 4
@@ -607,6 +658,7 @@ async def restart_game() -> bool:
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
+    pad_stuck_timer = 0.0
     return True
 
 
@@ -743,6 +795,13 @@ async def frame():
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return False
+        if (
+            event.type == pygame.KEYDOWN
+            and event.key == pygame.K_ESCAPE
+            and phase != Phase.MENU
+        ):
+            return_to_menu()
+            continue
         if score_overlay.visible and score_overlay.handle_event(event):
             continue
         if phase == Phase.BUILD and build_scene is not None:
@@ -762,8 +821,8 @@ async def frame():
             update_flight(dt)
             audio_manager.update_from_rocket(rocket, phase)
             handle_camera()
-        explosion_manager.update(dt)
-        update_flight_part_positions()
+            explosion_manager.update(dt)
+            update_flight_part_positions()
         handle_background(camera_scroll_y)
         if not rocket_destroyed:
             rotation_degrees = -math.degrees(rocket.rotation)
