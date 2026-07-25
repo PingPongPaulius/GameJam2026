@@ -22,6 +22,7 @@ class BuildScene:
         self.lock_after_seconds = countdown_seconds
         self.elapsed = 0.0
         self._locked = False
+        self.last_placed = 0
 
     def reset(self, countdown_seconds=None):
         """Return to a fresh build round."""
@@ -58,6 +59,7 @@ class BuildScene:
 
     def _try_place(self):
         slot = self.drag.target_slot
+        self.last_placed = self.elapsed
         if slot is None:
             return
         if self._position_occupied(slot, self.drag.target_offset_x):

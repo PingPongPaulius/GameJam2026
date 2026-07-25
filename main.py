@@ -426,7 +426,8 @@ def start_flight():
     for instance in flight_parts:
         instance.local_dx = instance.x - pivot_x
         instance.local_dy = instance.y - pivot_y
-    rocket.apply_pilot_effects()
+    data = {'time': build_scene.last_placed}
+    rocket.apply_pilot_effects(data)
 
 build_scene = BuildScene(
     rocket=rocket,

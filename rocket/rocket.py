@@ -240,7 +240,8 @@ class Rocket:
     
 
     def apply_pilot_effects(self, data):
-        if self.pilot.mission():
+        print(data)
+        if self.pilot.mission(data):
             self.apply_pilot_modifiers()
 
     def render(self, surface, assets, pos):
