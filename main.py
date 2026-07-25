@@ -422,6 +422,8 @@ def start_flight():
         if "Nose" in instance.part_def.name:
             is_robot_part_used = True
     
+    data = {'time': build_scene.last_placed, 'parts': len(parts_used), 'battery': is_robot_part_used}
+    rocket.apply_pilot_effects(data)
 
     total_weight = sum(instance.instance.part_def.weight for instance in flight_parts)
     if total_weight > 0:
@@ -440,8 +442,6 @@ def start_flight():
         instance.local_dy = instance.y - pivot_y
 
 main_menu_scene = MainMenuScene(screen, on_phase_change=set_phase)
-data = {'time': build_scene.last_placed, 'parts': len(parts_used), 'battery': is_robot_part_used}
-rocket.apply_pilot_effects(data)
 
 build_scene = BuildScene(
     rocket=rocket,
@@ -452,7 +452,6 @@ build_scene = BuildScene(
     on_timeout=start_flight,
 )
 rocket_debug_panel = RocketDebugPanel()
-
 
 def restart_game():
     """Return to a fresh build phase after submitting a score."""
