@@ -28,6 +28,7 @@ from vector import Vector
 from manager.audio_manager import AudioManager
 from manager.explosion_manager import ExplosionManager
 from rocket.behaviors import check_flight_failure
+from rocket.part_types import PartType
 
 pygame.init()
 audio_manager = AudioManager()
@@ -210,7 +211,7 @@ def _trigger_explosion(failure):
 
 
 def update_flight(dt: float):
-    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase
+    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase, stable
     global score_submit_timer, score_submit_armed, rocket_destroyed
 
     # After an explosion, wait briefly so the VFX can play, then score.
@@ -339,6 +340,7 @@ def update_flight(dt: float):
         rocket,
         landed=landed,
         impact_speed=impact_speed,
+        force_failure=not stable,
     )
     if failure:
         _trigger_explosion(failure)
@@ -398,11 +400,15 @@ def start_flight():
     rocket.rotation = 0.0
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
+    stable = False
     for instance in build_scene.rocket.parts:
         instance.gimbal_angle = 0.0
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
+        if (instance.part_def.part_type == PartType.FIN):
+            stable = True
+    
 
     total_weight = sum(instance.instance.part_def.weight for instance in flight_parts)
     if total_weight > 0:
@@ -431,10 +437,11 @@ build_scene = BuildScene(
 )
 rocket_debug_panel = RocketDebugPanel()
 
+stable = False
 
 def restart_game():
     """Return to a fresh build phase after submitting a score."""
-    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
+    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y, stable
     global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
 
     rocket.reset()
@@ -454,6 +461,7 @@ def restart_game():
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
+    stable = False
 
 
 score_overlay.on_restart = restart_game

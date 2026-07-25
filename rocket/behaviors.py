@@ -25,6 +25,7 @@ def check_flight_failure(
     *,
     landed: bool = False,
     impact_speed: float = 0.0,
+    force_failure: bool = False,
 ) -> Optional[FlightFailure]:
     """Return the first applicable failure, or None if still flying safely."""
     overheat = _check_overheat(rocket)
@@ -37,6 +38,9 @@ def check_flight_failure(
 
     if landed:
         return _check_hard_landing(impact_speed)
+
+    if force_failure:
+        return FlightFailure(kind="other", severity=0.5)
 
     return None
 
