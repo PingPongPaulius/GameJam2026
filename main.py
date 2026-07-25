@@ -144,6 +144,7 @@ V = 0
 W = 0
 UP = 0
 camera_scroll_y = 0
+camera_scroll_x = 0.0
 rocket_center_x = 0.0
 rocket_center_y = 0.0
 max_height = 0.0
@@ -219,22 +220,23 @@ def update_flight(dt: float):
             _show_score_overlay()
         return
 
-    DRAG_COEFFICIENT = 2e-5 * 10
+    DRAG_COEFFICIENT = 2e-5 * 30
+    THRUST_COEFFICIENT = 2
 
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
-        -DRAG_COEFFICIENT * rocket.y_velocity ** 2 * rocket.total_drag
+        -DRAG_COEFFICIENT * rocket.y_velocity * abs(rocket.y_velocity) * rocket.total_drag
     )
     y_thrust_accel = (
-        (rocket.total_thrust * math.cos(rocket.rotation)) / rocket.mass
+        (THRUST_COEFFICIENT * rocket.total_thrust * math.cos(rocket.rotation)) / rocket.mass
         if has_fuel and rocket.mass > 0
         else 0.0
     )
     x_drag_accel = (
-        -DRAG_COEFFICIENT * rocket.x_velocity ** 2 * rocket.total_drag
+        -DRAG_COEFFICIENT * rocket.x_velocity * abs(rocket.x_velocity) * rocket.total_drag
     )
     x_thrust_accel = (
-        (rocket.total_thrust * math.sin(rocket.rotation)) / rocket.mass
+        (THRUST_COEFFICIENT * rocket.total_thrust * math.sin(rocket.rotation)) / rocket.mass
         if has_fuel and rocket.mass > 0
         else 0.0
     )
@@ -252,7 +254,42 @@ def update_flight(dt: float):
         else 0.0
     )
 
-    rocket.rotation_acceleration = thrust_torque_accel - rocket.rotation_damping * rocket.rotation_speed
+    # Thrust vectoring: each gimbal-capable engine swivels its nozzle to fight the
+    # rocket's current tilt (sin of rotation, wraps naturally through upside-down)
+    # and spin rate, like a small PD autopilot per engine. The resulting torque is
+    # weighted by that engine's own distance from the center of gravity, since an
+    # engine further from the COG gets more leverage out of the same deflection.
+    GIMBAL_KP = 0.6
+    GIMBAL_KD = 0.8
+    MAX_GIMBAL_ANGLE = math.radians(20)
+    GIMBAL_SLEW_RATE = math.radians(180)
+
+    target_gimbal_angle = (
+        max(
+            -MAX_GIMBAL_ANGLE,
+            min(MAX_GIMBAL_ANGLE, -(GIMBAL_KP * math.sin(rocket.rotation) + GIMBAL_KD * rocket.rotation_speed)),
+        )
+        if has_fuel
+        else 0.0
+    )
+
+    cog_y = rocket.center_of_gravity_y
+    gimbal_torque = 0.0
+    for p in rocket.parts:
+        if not p.part_def.gimbal:
+            continue
+        max_step = GIMBAL_SLEW_RATE * dt
+        angle_delta = max(-max_step, min(max_step, target_gimbal_angle - p.gimbal_angle))
+        p.gimbal_angle += angle_delta
+        if has_fuel and rocket.moment_of_inertia > 0:
+            engine_dy = abs((p.slot_index * 64.0 / Rocket.VERTICAL_UNIT) - cog_y)
+            gimbal_torque += p.part_def.thrust * engine_dy * math.sin(p.gimbal_angle)
+
+    gimbal_torque_accel = gimbal_torque / rocket.moment_of_inertia if rocket.moment_of_inertia > 0 else 0.0
+
+    rocket.rotation_acceleration = (
+        thrust_torque_accel - rocket.rotation_damping * rocket.rotation_speed + gimbal_torque_accel
+    )
 
     rocket.rotation_speed += rocket.rotation_acceleration * dt
     rocket.rotation += rocket.rotation_speed * dt
@@ -345,6 +382,7 @@ def start_flight():
     flight_parts.clear()
     explosion_manager.clear()
     camera_scroll_y = 0
+    camera_scroll_x = 0.0
     max_height = 0.0
     max_speed = 0.0
     score_submit_timer = 0.0
@@ -361,6 +399,7 @@ def start_flight():
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
     for instance in build_scene.rocket.parts:
+        instance.gimbal_angle = 0.0
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
@@ -407,6 +446,7 @@ def restart_game():
     W = 0
     UP = 0
     camera_scroll_y = 0
+    camera_scroll_x = 0.0
     rocket_center_x = 0.0
     rocket_center_y = 0.0
     max_height = 0.0
@@ -468,14 +508,18 @@ def _get_background(path: str):
     return _background_cache[path]
 
 
-def handle_background(scroll_y: float = 0):
+def handle_background(scroll_y: float = 0, scroll_x: float = 0):
     if not _background_slices:
         return
 
     slice_height = _background_slices[0].get_height()
     slice_width = _background_slices[0].get_width()
-    scroll_offset = max(0, int(scroll_y)) 
+    scroll_offset = max(0, int(scroll_y))
     stack_bottom = SCREEN_HEIGHT + scroll_offset
+
+    # Background moves opposite to sideways rocket movement, giving a
+    # parallax feel of the camera panning with the rocket.
+    x_offset = int(scroll_x) % slice_width
 
     # Draw enough vertical tiles to fill the screen. Past the authored stack,
     # keep repeating the topmost slice so flight can go forever.
@@ -492,12 +536,12 @@ def handle_background(scroll_y: float = 0):
         y = stack_bottom - (index + 1) * slice_height
         if y + slice_height < 0 or y > SCREEN_HEIGHT:
             continue
-        for x in range(0, SCREEN_WIDTH, slice_width):
+        for x in range(-x_offset - slice_width, SCREEN_WIDTH + slice_width, slice_width):
             screen.blit(slice_image, (x, y))
 
 
 def handle_camera():
-    global camera_scroll_y, rocket_center_x, rocket_center_y
+    global camera_scroll_y, camera_scroll_x, rocket_center_x, rocket_center_y
 
     if phase == Phase.FLIGHT:
         if not flight_parts:
@@ -523,8 +567,10 @@ def handle_camera():
             camera_scroll_y -= excess
 
         if rocket_center_x < left_bound:
+            camera_scroll_x -= left_bound - rocket_center_x
             rocket_center_x = left_bound
         elif rocket_center_x > right_bound:
+            camera_scroll_x += rocket_center_x - right_bound
             rocket_center_x = right_bound
         return
 

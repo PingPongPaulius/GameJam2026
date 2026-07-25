@@ -7,3 +7,4 @@ class PartInstance:
     slot_index: int
     offset_x: float = 0.0
     rotation: float = 0.0
+    gimbal_angle: float = 0.0  # current nozzle deflection, radians; only meaningful when part_def.gimbal
