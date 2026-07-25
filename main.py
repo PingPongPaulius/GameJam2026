@@ -221,7 +221,7 @@ def update_flight(dt: float):
         return
 
     DRAG_COEFFICIENT = 2e-5 * 30
-    THRUST_COEFFICIENT = 2
+    THRUST_COEFFICIENT = 10
 
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
@@ -619,7 +619,10 @@ def frame():
                     part.offset_x,
                     slot=part.slot_index,
                 )
-                rotated_image = pygame.transform.rotate(image, rotation_degrees)
+                part_rotation_degrees = rotation_degrees
+                if part.part_def.gimbal:
+                    part_rotation_degrees += math.degrees(part.gimbal_angle)
+                rotated_image = pygame.transform.rotate(image, part_rotation_degrees)
                 screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
         explosion_manager.draw(screen)
         sidebar.draw(screen)
