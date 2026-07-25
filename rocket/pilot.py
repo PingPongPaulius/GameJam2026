@@ -1,9 +1,10 @@
 from dataclasses import dataclass, field
+from typing import Any
 
-def default_mission(cls, data):
+def default_mission(data):
     return True
 
-def mission_alien(cls, data) -> bool:
+def mission_alien(data) -> bool:
     return data.get('time', 0) < 10
 
 @dataclass
@@ -18,4 +19,4 @@ class Pilot:
     name: str
     attributes: PilotAttributes = field(default_factory=PilotAttributes)
     portrait_sprite: str = "pilots/pilot-1.gif"
-    mission = mission_alien
+    mission: Any = mission_alien

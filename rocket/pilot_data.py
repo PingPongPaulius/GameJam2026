@@ -7,6 +7,7 @@ class PilotDef:
     name: str
     attributes: dict[str, str]
     avatar: str = ""
+    mission: int = 0
 
 def load_pilots(path="data/pilots.json") -> dict[str, PilotDef]:
     with open(path) as f:
@@ -17,6 +18,7 @@ def load_pilots(path="data/pilots.json") -> dict[str, PilotDef]:
             id=e["id"], name=e["name"],
             attributes=e["attributes"],
             avatar=e.get("avatar", ""),
+            mission=e.get("mission", 0),
         )
         catalog[pilot.id] = pilot
     return catalog

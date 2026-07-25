@@ -18,7 +18,8 @@
                 "thrust_increase": 1.0,
                 "drag_efficiency": 0.75
             },
-            "avatar": "Pilot_Human.png"
+            "avatar": "Pilot_Human.png",
+	    "mission": 1
         },
         {
             "id": 2,
@@ -29,7 +30,8 @@
                 "thrust_increase": 3.0,
                 "drag_efficiency": 1.0
             },
-            "avatar": "Pilot_Alien.png"
+            "avatar": "Pilot_Alien.png",
+	    "mission": 1
         },
         {
             "id": 3,
@@ -40,7 +42,8 @@
                 "thrust_increase": 1.0,
                 "drag_efficiency": 1.0
             },
-            "avatar": "Pilot_Robot.png"
+            "avatar": "Pilot_Robot.png",
+	    "mission": 1
         },
         {
             "id": 4,
@@ -51,7 +54,8 @@
                 "thrust_increase": 10.0,
                 "drag_efficiency": 0.5
             },
-            "avatar": "Pilot_Pepe.jpg"
+            "avatar": "Pilot_Pepe.jpg",
+	    "mission": 0
         }
     ]
 }

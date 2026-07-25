@@ -13,7 +13,7 @@ from UI import Button
 from anime import Animation
 
 from rocket.part_data import PART_CATALOG
-from rocket.pilot import Pilot, PilotAttributes
+from rocket.pilot import Pilot, PilotAttributes, default_mission, mission_alien
 from rocket.pilot_data import PILOT_CATALOG
 from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
@@ -116,10 +116,13 @@ if rng.randint(1, 100) > 99:
 else:
     selected_pilot = rng.randint(1,3)
 
+missions = {0: default_mission, 1: mission_alien}
+print()
 pilot = Pilot(
     name=pilots[selected_pilot].name,
     attributes=PilotAttributes(**pilots[selected_pilot].attributes),
     portrait_sprite=pilots[selected_pilot].avatar,
+    mission = missions[pilots[selected_pilot].mission],
 )
 rocket = Rocket(pilot)
 
