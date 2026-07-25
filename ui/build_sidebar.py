@@ -77,13 +77,13 @@ class BuildSidebar:
     def _attribute_lines(self) -> list[str]:
         attributes = []
         attrs = self.pilot.attributes
-        if attrs.fuel_consumption != 0:
+        if attrs.fuel_consumption != 1.0:
             attributes.append(f"Fuel use: x{attrs.fuel_consumption:.1f}")
-        if attrs.weight_reduction != 0:
+        if attrs.weight_reduction != 1.0:
             attributes.append(f"Weight reduction: x{attrs.weight_reduction:.1f}")
-        if attrs.thrust_increase != 0:
+        if attrs.thrust_increase != 1.0:
             attributes.append(f"Thrust increase: x{attrs.thrust_increase:.1f}")
-        if attrs.drag_efficiency != 0:
+        if attrs.drag_efficiency != 1.0:
             attributes.append(f"Drag efficiency: x{attrs.drag_efficiency:.1f}")
 
         return attributes

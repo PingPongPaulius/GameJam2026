@@ -28,7 +28,7 @@ class Rocket:
         self.rotation_inertia = 0.0
         self.COM_x = 0.0
         self.COT_x= 0.0
-        self.pilot_attributes = (0,0,0,0) #fuel_consumption,weight_reduction,thrust_increase,drag_efficiency
+        self.pilot_attributes = (1.0, 1.0, 1.0, 1.0) #fuel_consumption,weight_reduction,thrust_increase,drag_efficiency
         self.drag_reduction_factor = 1.0
 
     @property
@@ -64,7 +64,7 @@ class Rocket:
 
     @property  # in tons
     def total_weight(self) -> float:
-        return sum(p.part_def.weight for p in self.parts) * self.pilot_attributes[1]
+        return sum(p.part_def.weight for p in self.parts) / self.pilot_attributes[1]
 
     @property  # in kN
     def total_thrust(self) -> float:
