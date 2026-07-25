@@ -10,3 +10,5 @@ class PartType(Enum):
     PAYLOAD = auto()
     HEAT_SHIELD = auto()
     COOLING_SYSTEM = auto()
+    FRAME = auto()
+    MODULE = auto()
