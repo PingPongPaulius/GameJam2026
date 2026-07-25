@@ -1,3 +1,5 @@
+import pygame
+
 class AnimationAssetAdapter:
     def __init__(self, sprite_dir="Sprites/parts/", default_size=(64, 64)):
         self.sprite_dir = sprite_dir

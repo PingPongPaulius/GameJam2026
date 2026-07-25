@@ -1,3 +1,5 @@
+from vector import Vector
+
 class InstanceWrapper:
 
     def __init__(self, instance, pos):
