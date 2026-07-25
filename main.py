@@ -225,7 +225,42 @@ def update_flight(dt: float):
         else 0.0
     )
 
-    rocket.rotation_acceleration = thrust_torque_accel - rocket.rotation_damping * rocket.rotation_speed
+    # Thrust vectoring: each gimbal-capable engine swivels its nozzle to fight the
+    # rocket's current tilt (sin of rotation, wraps naturally through upside-down)
+    # and spin rate, like a small PD autopilot per engine. The resulting torque is
+    # weighted by that engine's own distance from the center of gravity, since an
+    # engine further from the COG gets more leverage out of the same deflection.
+    GIMBAL_KP = 0.6
+    GIMBAL_KD = 0.8
+    MAX_GIMBAL_ANGLE = math.radians(20)
+    GIMBAL_SLEW_RATE = math.radians(180)
+
+    target_gimbal_angle = (
+        max(
+            -MAX_GIMBAL_ANGLE,
+            min(MAX_GIMBAL_ANGLE, -(GIMBAL_KP * math.sin(rocket.rotation) + GIMBAL_KD * rocket.rotation_speed)),
+        )
+        if has_fuel
+        else 0.0
+    )
+
+    cog_y = rocket.center_of_gravity_y
+    gimbal_torque = 0.0
+    for p in rocket.parts:
+        if not p.part_def.gimbal:
+            continue
+        max_step = GIMBAL_SLEW_RATE * dt
+        angle_delta = max(-max_step, min(max_step, target_gimbal_angle - p.gimbal_angle))
+        p.gimbal_angle += angle_delta
+        if has_fuel and rocket.moment_of_inertia > 0:
+            engine_dy = abs((p.slot_index * 64.0 / Rocket.VERTICAL_UNIT) - cog_y)
+            gimbal_torque += p.part_def.thrust * engine_dy * math.sin(p.gimbal_angle)
+
+    gimbal_torque_accel = gimbal_torque / rocket.moment_of_inertia if rocket.moment_of_inertia > 0 else 0.0
+
+    rocket.rotation_acceleration = (
+        thrust_torque_accel - rocket.rotation_damping * rocket.rotation_speed + gimbal_torque_accel
+    )
 
     rocket.rotation_speed += rocket.rotation_acceleration * dt
     rocket.rotation += rocket.rotation_speed * dt
@@ -323,6 +358,7 @@ def start_flight():
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
     for instance in build_scene.rocket.parts:
+        instance.gimbal_angle = 0.0
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
@@ -536,7 +572,10 @@ def frame():
             image = build_scene.assets.get_image(part.part_def.sprite)
             if part.part_def.part_type in SIDE_MOUNT_TYPES and part.offset_x < 0:
                 image = pygame.transform.flip(image, True, False)
-            rotated_image = pygame.transform.rotate(image, rotation_degrees)
+            part_rotation_degrees = rotation_degrees
+            if part.part_def.gimbal:
+                part_rotation_degrees += math.degrees(part.gimbal_angle)
+            rotated_image = pygame.transform.rotate(image, part_rotation_degrees)
             screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
         sidebar.draw(screen)
 

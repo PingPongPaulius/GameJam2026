@@ -124,7 +124,8 @@
       "thrust": 120.0,
       "heat_dissipation": 0.5,
       "fuel_consumption": 0.082,
-      "sprite": "engine_basic.png"
+      "sprite": "engine_basic.png",
+      "gimbal": true
     },
 
     {

@@ -146,6 +146,12 @@ class Rocket:
         ) / total_mass
 
     @property
+    def center_of_gravity_y(self) -> float:
+        if not self.parts:
+            return 0.0
+        return self._center_of_gravity_y_scaled()
+
+    @property
     def center_of_gravity_x(self) -> float:
         if not self.parts:
             return 0.0
