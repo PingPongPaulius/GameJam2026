@@ -7,6 +7,12 @@ def default_mission(data):
 def mission_alien(data) -> bool:
     return data.get('time', 0) < 10
 
+def mission_human(data) -> bool:
+    return False
+
+def mission_robot(data) -> bool:
+    return False
+
 @dataclass
 class PilotAttributes:
     fuel_consumption: float = 0.0

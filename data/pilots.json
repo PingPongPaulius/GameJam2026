@@ -19,7 +19,7 @@
                 "drag_efficiency": 0.75
             },
             "avatar": "Pilot_Human.png",
-	    "mission": 1
+	    "mission": 2
         },
         {
             "id": 2,
@@ -43,7 +43,7 @@
                 "drag_efficiency": 1.0
             },
             "avatar": "Pilot_Robot.png",
-	    "mission": 1
+	    "mission": 3
         },
         {
             "id": 4,
