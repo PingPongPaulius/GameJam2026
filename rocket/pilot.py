@@ -8,10 +8,10 @@ def mission_alien(data) -> bool:
     return data.get('time', 0) < 10
 
 def mission_human(data) -> bool:
-    return data.get('part_types', 0) >= 5
+    return data.get('parts', 0) >= 5
 
 def mission_robot(data) -> bool:
-    return data.get('battery', False) == 0 
+    return data.get('battery', False)
 
 @dataclass
 class PilotAttributes:

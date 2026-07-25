@@ -412,11 +412,17 @@ def start_flight():
     rocket.fuel_remaining = rocket.total_fuel_capacity
     rocket.rotation_acceleration = 0.0
     rocket.drag_reduction_factor = rocket.min_drag_reduction_factor
+    parts_used = set()
+    is_robot_part_used = False
     for instance in build_scene.rocket.parts:
         instance.gimbal_angle = 0.0
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
+        parts_used.add(instance.part_def.name)
+        print(instance.part_def.name)
+        if "Nose" in instance.part_def.name:
+            is_robot_part_used = True
     
 
     total_weight = sum(instance.instance.part_def.weight for instance in flight_parts)
@@ -434,7 +440,7 @@ def start_flight():
     for instance in flight_parts:
         instance.local_dx = instance.x - pivot_x
         instance.local_dy = instance.y - pivot_y
-    data = {'time': build_scene.last_placed}
+    data = {'time': build_scene.last_placed, 'parts': len(parts_used), 'battery': is_robot_part_used}
     rocket.apply_pilot_effects(data)
 
 build_scene = BuildScene(
