@@ -425,7 +425,20 @@ def restart_game():
     global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y 
     global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
 
-    rocket.reset()
+    if rng.randint(1, 100) > 99:
+        selected_pilot = 4
+    else:
+        selected_pilot = rng.randint(1,3)
+
+    pilot = Pilot(
+        name=pilots[selected_pilot].name,
+        attributes=PilotAttributes(**pilots[selected_pilot].attributes),
+        portrait_sprite=pilots[selected_pilot].avatar,
+        mission = missions[pilots[selected_pilot].mission],
+    )
+    sidebar.pilot = pilot
+    rocket.reset(pilot)
+    sidebar._load_portrait()
     flight_parts.clear()
     explosion_manager.clear()
     build_scene.reset(build_countdown_seconds)

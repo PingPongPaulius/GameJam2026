@@ -53,10 +53,12 @@ class Rocket:
                 return p
         return None
 
-    def reset(self):
+    def reset(self, pilot=None):
         self.parts.clear()
         self.height = self.x_velocity = self.y_velocity = self.rotation = self.heat = 0.0
         self.fuel_remaining = 0.0
+        if pilot is not None:
+            self.pilot = pilot
 
     @property
     def fuel_percentage(self) -> float:
