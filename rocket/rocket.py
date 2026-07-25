@@ -236,12 +236,11 @@ class Rocket:
         return len(self.validate()) == 0
     
     def apply_pilot_modifiers(self):
-        pass
+        print("Apply")
     
 
-    def apply_pilot_effects(self):
+    def apply_pilot_effects(self, data):
         if self.pilot.mission():
-            print("Apply")
             self.apply_pilot_modifiers()
 
     def render(self, surface, assets, pos):

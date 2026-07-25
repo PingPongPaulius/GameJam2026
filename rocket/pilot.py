@@ -4,7 +4,7 @@ def default_mission(data):
     return True
 
 def mission_alien(data) -> bool:
-    return True
+    return data.get('time', 0) > 2
 
 @dataclass
 class PilotAttributes:
