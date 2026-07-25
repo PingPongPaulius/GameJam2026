@@ -221,7 +221,7 @@ def update_flight(dt: float):
             _show_score_overlay()
         return
 
-    DRAG_COEFFICIENT = 2e-5 * 30
+    DRAG_COEFFICIENT = 2e-5 * 30 * rocket.drag_reduction_factor
     THRUST_COEFFICIENT = 10
 
     has_fuel = rocket.fuel_remaining > 0
