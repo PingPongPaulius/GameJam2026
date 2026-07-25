@@ -137,7 +137,7 @@ class BuildScene:
             if slot is not None
             else offset_x < 0
         )
-        if faces_left:
+        if not faces_left:
             return pygame.transform.flip(image, True, False)
         return image
 
