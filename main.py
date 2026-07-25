@@ -26,9 +26,12 @@ from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
 from rendering.rocket_renderer import draw_rocket
 from vector import Vector
 from manager.audio_manager import AudioManager
+from manager.explosion_manager import ExplosionManager
+from rocket.behaviors import check_flight_failure
 
 pygame.init()
 audio_manager = AudioManager()
+explosion_manager = ExplosionManager()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
 BG_COLOR = (20, 20, 20)
@@ -146,8 +149,10 @@ rocket_center_y = 0.0
 max_height = 0.0
 max_speed = 0.0
 SCORE_SUBMIT_DELAY = 3.0
+EXPLOSION_SCORE_DELAY = 1.2
 score_submit_timer = 0.0
 score_submit_armed = False
+rocket_destroyed = False
 _background_cache = {}
 _background_slices = []
 
@@ -186,9 +191,33 @@ def _show_score_overlay():
     score_overlay.show(max_height, max_speed)
 
 
+def _trigger_explosion(failure):
+    global rocket_destroyed, score_submit_timer, score_submit_armed
+    if rocket_destroyed:
+        return
+    rocket_destroyed = True
+    score_submit_armed = True
+    score_submit_timer = 0.0
+    rocket.y_velocity = 0.0
+    rocket.x_velocity = 0.0
+    rocket.velocity = 0.0
+    rocket.rotation_speed = 0.0
+    rocket.fuel_remaining = 0.0  # stops engine loop during the boom
+    explosion_manager.spawn(rocket_center_x, rocket_center_y, failure.severity)
+    audio_manager.play("explosion")
+    print(f"Rocket destroyed: {failure.kind} (severity={failure.severity:.2f})")
+
+
 def update_flight(dt: float):
     global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase
-    global score_submit_timer, score_submit_armed
+    global score_submit_timer, score_submit_armed, rocket_destroyed
+
+    # After an explosion, wait briefly so the VFX can play, then score.
+    if rocket_destroyed:
+        score_submit_timer += dt
+        if score_submit_timer >= EXPLOSION_SCORE_DELAY:
+            _show_score_overlay()
+        return
 
     DRAG_COEFFICIENT = 2e-5 * 10
 
@@ -239,6 +268,7 @@ def update_flight(dt: float):
     rocket.rotation_inertia = rocket.moment_of_inertia
 
     land_hit = rocket.height <= 0 and rocket.y_velocity < 0
+    impact_speed = abs(rocket.y_velocity) if land_hit else 0.0
 
     rocket.y_velocity += rocket.y_acceleration * dt if not land_hit else 0
     rocket.x_velocity += rocket.x_acceleration * dt if not land_hit else 0
@@ -267,6 +297,24 @@ def update_flight(dt: float):
     V = rocket.y_velocity
     UP = rocket.y_velocity
 
+    landed = previous_height > 1.0 and rocket.height <= 0.0
+    failure = check_flight_failure(
+        rocket,
+        landed=landed,
+        impact_speed=impact_speed,
+    )
+    if failure:
+        _trigger_explosion(failure)
+        return
+
+    # Soft touchdown — no boom, go straight to score.
+    if landed:
+        rocket.y_velocity = 0.0
+        rocket.x_velocity = 0.0
+        rocket.velocity = 0.0
+        _show_score_overlay()
+        return
+
     # 3s after the rocket starts falling, open score submit.
     if (
         not score_submit_armed
@@ -280,20 +328,11 @@ def update_flight(dt: float):
         score_submit_timer += dt
         if score_submit_timer >= SCORE_SUBMIT_DELAY:
             _show_score_overlay()
-            return
-
-    # Fallback: touchdown before a fall was detected.
-    landed = previous_height > 1.0 and rocket.height <= 0.0 and rocket.y_velocity <= 0.0
-    if landed:
-        rocket.y_velocity = 0.0
-        rocket.x_velocity = 0.0
-        rocket.velocity = 0.0
-        _show_score_overlay()
 
 
 def start_flight():
     global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
-    global max_height, max_speed, score_submit_timer, score_submit_armed
+    global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -304,11 +343,13 @@ def start_flight():
     )
     phase = Phase.FLIGHT
     flight_parts.clear()
+    explosion_manager.clear()
     camera_scroll_y = 0
     max_height = 0.0
     max_speed = 0.0
     score_submit_timer = 0.0
     score_submit_armed = False
+    rocket_destroyed = False
     V = 0
     W = 0
     rocket.height = 0.0
@@ -355,10 +396,11 @@ rocket_debug_panel = RocketDebugPanel()
 def restart_game():
     """Return to a fresh build phase after submitting a score."""
     global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
-    global max_height, max_speed, score_submit_timer, score_submit_armed
+    global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
 
     rocket.reset()
     flight_parts.clear()
+    explosion_manager.clear()
     build_scene.reset(build_countdown_seconds)
     phase = Phase.BUILD
     V = 0
@@ -371,6 +413,7 @@ def restart_game():
     max_speed = 0.0
     score_submit_timer = 0.0
     score_submit_armed = False
+    rocket_destroyed = False
 
 
 score_overlay.on_restart = restart_game
@@ -518,16 +561,21 @@ def frame():
             update_flight(dt)
             audio_manager.update_from_rocket(rocket, phase)
             handle_camera()
+        explosion_manager.update(dt)
         update_flight_part_positions()
         handle_background(camera_scroll_y)
-        rotation_degrees = -math.degrees(rocket.rotation)
-        for instance in flight_parts:
-            part = instance.instance
-            image = build_scene.assets.get_image(part.part_def.sprite)
-            if part.part_def.part_type in SIDE_MOUNT_TYPES and part.offset_x < 0:
-                image = pygame.transform.flip(image, True, False)
-            rotated_image = pygame.transform.rotate(image, rotation_degrees)
-            screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
+        if not rocket_destroyed:
+            rotation_degrees = -math.degrees(rocket.rotation)
+            for instance in flight_parts:
+                part = instance.instance
+                image = build_scene._part_image(
+                    part.part_def,
+                    part.offset_x,
+                    slot=part.slot_index,
+                )
+                rotated_image = pygame.transform.rotate(image, rotation_degrees)
+                screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
+        explosion_manager.draw(screen)
         sidebar.draw(screen)
 
     if exit_button.update() == "Pressed":

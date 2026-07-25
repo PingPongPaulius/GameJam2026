@@ -12,10 +12,12 @@ class AudioManager:
             #"part_place": pygame.mixer.Sound("Sounds/part_place.ogg"),
             "engine": pygame.mixer.Sound("audio/rocket-boost.mp3"),
             "wind": pygame.mixer.Sound("audio/wind.mp3"),
+            "explosion": pygame.mixer.Sound("audio/explosion.mp3"),
         }
         self._channels = {
             "engine": pygame.mixer.Channel(0),
             "wind": pygame.mixer.Channel(1),
+            "explosion": pygame.mixer.Channel(0),
         }
         self._prev = {}
 
@@ -27,7 +29,7 @@ class AudioManager:
     def update_from_rocket(self, rocket, phase):
         in_flight = phase.name == "FLIGHT"
         thrusting = in_flight and rocket.fuel_remaining > 0 and rocket.total_thrust > 0
-        self._set_loop("engine", thrusting)
+        self._set_loop("engine", thrusting, 0.2)
 
         wind_volume = self._wind_volume(rocket.velocity) if in_flight else 0.0
         self._set_loop("wind", wind_volume > 0.01, volume=wind_volume)

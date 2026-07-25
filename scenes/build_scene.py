@@ -42,7 +42,14 @@ class BuildScene:
 
         elif event.type == pygame.MOUSEMOTION and self.drag.active:
             is_side = self.drag.part_def.part_type in SIDE_MOUNT_TYPES
-            slot, offset_x = self.build_area.slot_at(event.pos, side_mount=is_side)
+            host_offset_x = 0.0
+            if is_side:
+                host_offset_x = self._host_offset_at(event.pos)
+            slot, offset_x = self.build_area.slot_at(
+                event.pos,
+                side_mount=is_side,
+                host_offset_x=host_offset_x,
+            )
             self.drag.update(event.pos, slot, offset_x)
 
         elif event.type == pygame.MOUSEBUTTONUP and event.button == 1 and self.drag.active:
@@ -71,15 +78,35 @@ class BuildScene:
         is_side = part_def.part_type in SIDE_MOUNT_TYPES
         return self._connects_to_existing(slot, offset_x, is_side)
 
+    def _center_hosts_in_slot(self, slot):
+        return [
+            p for p in self.rocket.parts
+            if p.slot_index == slot and p.part_def.part_type not in SIDE_MOUNT_TYPES
+        ]
+
+    def _host_offset_at(self, mouse_pos) -> float:
+        """Offset of the nearest center part in the hovered slot (else 0)."""
+        mx, my = mouse_pos
+        rel_y = self.build_area.anchor_y - my
+        slot = round(rel_y / self.build_area.slot_height)
+        hosts = self._center_hosts_in_slot(slot)
+        if not hosts:
+            return 0.0
+        return min(
+            hosts,
+            key=lambda p: abs(self.build_area.anchor_x + p.offset_x - mx),
+        ).offset_x
+
     def _connects_to_existing(self, slot, offset_x, is_side) -> bool:
         occupied_rows = {p.slot_index for p in self.rocket.parts}
-        center_rows = {
-            p.slot_index for p in self.rocket.parts
-            if p.part_def.part_type not in SIDE_MOUNT_TYPES
-        }
+        hosts = self._center_hosts_in_slot(slot)
 
         if is_side:
-            return slot in center_rows
+            # Must sit beside a center part in this row.
+            return any(
+                abs(abs(offset_x - p.offset_x) - self.build_area.side_attach_offset) < 0.01
+                for p in hosts
+            )
 
         if slot in occupied_rows:
             return True
@@ -92,9 +119,23 @@ class BuildScene:
             for p in self.rocket.parts
         )
 
-    def _part_image(self, part_def, offset_x=0.0):
+    def _side_faces_left(self, slot, offset_x) -> bool:
+        hosts = self._center_hosts_in_slot(slot)
+        if hosts:
+            host = min(hosts, key=lambda p: abs(p.offset_x - offset_x))
+            return offset_x < host.offset_x
+        return offset_x < 0
+
+    def _part_image(self, part_def, offset_x=0.0, slot=None):
         image = self.assets.get_image(part_def.sprite)
-        if part_def.part_type in SIDE_MOUNT_TYPES and offset_x < 0:
+        if part_def.part_type not in SIDE_MOUNT_TYPES:
+            return image
+        faces_left = (
+            self._side_faces_left(slot, offset_x)
+            if slot is not None
+            else offset_x < 0
+        )
+        if faces_left:
             return pygame.transform.flip(image, True, False)
         return image
 
@@ -122,7 +163,11 @@ class BuildScene:
         self.build_area.draw(surface)
         for instance in self.rocket.parts:
             pos = self.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
-            image = self._part_image(instance.part_def, instance.offset_x)
+            image = self._part_image(
+                instance.part_def,
+                instance.offset_x,
+                slot=instance.slot_index,
+            )
             surface.blit(image, image.get_rect(center=pos))
 
         if self.drag.active:
@@ -145,6 +190,7 @@ class BuildScene:
                 image = self._part_image(
                     self.drag.part_def,
                     self.drag.target_offset_x,
+                    slot=self.drag.target_slot,
                 ).copy()
                 image.set_alpha(150)
                 surface.blit(image, image.get_rect(center=pos))

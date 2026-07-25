@@ -114,16 +114,20 @@ class BuildArea:
         idx_b = min(range(len(values)), key=lambda i: abs(values[i] - offset_b))
         return abs(idx_a - idx_b) <= 1
 
-    def is_side_offset(self, offset_x) -> bool:
-        return abs(abs(offset_x) - self.side_attach_offset) < 0.01
+    def is_side_offset(self, offset_x, host_offset_x=0.0) -> bool:
+        return abs(abs(offset_x - host_offset_x) - self.side_attach_offset) < 0.01
 
     def side_mount_dead_zone(self) -> float:
-        """How far from center the cursor must be before a side mount snaps."""
+        """How far from the host the cursor must be before a side mount snaps."""
         # Keep this well inside the side snap X so aiming at the side works.
         return min(self.slot_height * 0.35, self.side_attach_offset * 0.4)
 
-    def slot_at(self, mouse_pos, side_mount=False):
-        """Returns (slot_index, offset_x) for a mouse position, or (None, 0)."""
+    def slot_at(self, mouse_pos, side_mount=False, host_offset_x=0.0):
+        """Returns (slot_index, offset_x) for a mouse position, or (None, 0).
+
+        Side mounts snap to host_offset_x ± side_attach_offset so they stay
+        equidistant from the part they attach to, not the rocket centerline.
+        """
         mx, my = mouse_pos
         rel_y = self.anchor_y - my
         slot = round(rel_y / self.slot_height)
@@ -133,9 +137,10 @@ class BuildArea:
         dx = mx - self.anchor_x
 
         if side_mount:
-            if abs(dx) <= self.side_mount_dead_zone():
+            rel = dx - host_offset_x
+            if abs(rel) <= self.side_mount_dead_zone():
                 return None, 0.0
-            return slot, math.copysign(self.side_attach_offset, dx)
+            return slot, host_offset_x + math.copysign(self.side_attach_offset, rel)
 
         offset_x = min(self._center_offset_values(), key=lambda o: abs(dx - o))
         return slot, offset_x
