@@ -10,7 +10,6 @@ import pygame
 
 from Tokens.token import Token, Player, Platform
 from UI import Button
-from anime import Animation
 
 from rocket.part_data import (
     PART_CATALOG,
@@ -36,6 +35,7 @@ from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
 from scenes.main_menu_scene import MainMenuScene
 from rendering.rocket_renderer import draw_rocket
+from rendering.engine_flame import EngineFlameAnimator
 from vector import Vector
 from manager.audio_manager import AudioManager
 from manager.explosion_manager import ExplosionManager
@@ -64,7 +64,20 @@ tokens = []
 camera_scroll_speed = 1
 half_camera_boundry = 200
 
-loader = Animation()
+# Start altitude (meters) for Background_Slice_1..N. Slice 1/2 fill the climb
+# before the altitudes you specified for 3–6.
+BACKGROUND_SLICE_STARTS = (
+    0,       # slice 1
+    500,    # slice 2
+    30_000,  # slice 3
+    50_000,  # slice 4
+    70_000,  # slice 5
+    100_000, # slice 6
+)
+# How quickly the drawn background eases toward the height target (1/s).
+BACKGROUND_SCROLL_FOLLOW = 1.25
+
+engine_flames = EngineFlameAnimator()
 
 # Variables for the build area and the rocket
 slot_height = 64
@@ -102,6 +115,7 @@ rocket_center_x = 0.0
 rocket_center_y = 0.0
 max_height = 0.0
 max_speed = 0.0
+flight_time = 0.0
 SCORE_SUBMIT_DELAY = 3.0
 EXPLOSION_SCORE_DELAY = 1.2
 PAD_STUCK_TIMEOUT = 5.0
@@ -112,6 +126,7 @@ rocket_destroyed = False
 pad_stuck_timer = 0.0
 _background_cache = {}
 _background_slices = []
+_background_scroll_y = 0.0
 
 
 def _flight_rocket_payload() -> dict | None:
@@ -158,7 +173,7 @@ def set_phase(new_phase):
 def return_to_menu():
     """Leave build/flight/results and return to the main menu."""
     global phase, V, W, UP, camera_scroll_y, camera_scroll_x
-    global rocket_center_x, rocket_center_y, max_height, max_speed
+    global rocket_center_x, rocket_center_y, max_height, max_speed, flight_time
     global score_submit_timer, score_submit_armed, rocket_destroyed, pad_stuck_timer
 
     score_overlay.hide()
@@ -176,10 +191,12 @@ def return_to_menu():
     rocket_center_y = 0.0
     max_height = 0.0
     max_speed = 0.0
+    flight_time = 0.0
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
     pad_stuck_timer = 0.0
+    _reset_background_scroll()
 
     if catalogs_ready:
         apply_catalogs_to_game()
@@ -212,7 +229,7 @@ def _show_score_overlay():
     score_submit_timer = 0.0
     score_submit_armed = False
     phase = Phase.RESULTS
-    score_overlay.show(max_height, max_speed)
+    score_overlay.show(max_height, max_speed, flight_time)
 
 
 def _trigger_explosion(failure):
@@ -227,20 +244,21 @@ def _trigger_explosion(failure):
     rocket.velocity = 0.0
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = 0.0  # stops engine loop during the boom
-    explosion_manager.spawn(rocket_center_x, rocket_center_y, failure.severity)
-    audio_manager.play("explosion")
+    # No boom for empty builds or rockets that never left the pad.
+    lifted_off = max_height > 1.0 and bool(rocket.parts)
+    if lifted_off:
+        explosion_manager.spawn(rocket_center_x, rocket_center_y, failure.severity)
+        audio_manager.play("explosion")
     print(f"Rocket destroyed: {failure.kind} (severity={failure.severity:.2f})")
 
 
 def update_flight(dt: float):
-    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase 
+    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase
     global score_submit_timer, score_submit_armed, rocket_destroyed, pad_stuck_timer
-
-
+    global flight_time
 
     DRAG_COEFFICIENT = 2e-5 * 30
     THRUST_COEFFICIENT = 10
-
 
     # After an explosion, wait briefly so the VFX can play, then score.
     if rocket_destroyed:
@@ -249,7 +267,8 @@ def update_flight(dt: float):
             _show_score_overlay()
         return
 
-    
+    flight_time += dt
+
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
         -DRAG_COEFFICIENT * rocket.y_velocity * abs(rocket.y_velocity) * rocket.total_drag
@@ -423,8 +442,8 @@ def update_flight(dt: float):
 
 def start_flight():
     global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
-    global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
-    global pad_stuck_timer
+    global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
+    global rocket_destroyed, pad_stuck_timer
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -440,10 +459,12 @@ def start_flight():
     camera_scroll_x = 0.0
     max_height = 0.0
     max_speed = 0.0
+    flight_time = 0.0
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
     pad_stuck_timer = 0.0
+    _reset_background_scroll()
     V = 0
     W = 0
     rocket.height = 0.0
@@ -546,6 +567,7 @@ def apply_catalogs_to_game():
             sidebar=sidebar,
             build_area=build_area,
             assets=assets,
+            audio=audio_manager,
             countdown_seconds=build_countdown_seconds,
             on_timeout=start_flight,
         )
@@ -620,8 +642,8 @@ async def refresh_catalogs_for_menu():
 async def restart_game() -> bool:
     """Reload catalogs (API or local fallback), then return to a fresh build phase."""
     global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
-    global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
-    global pad_stuck_timer
+    global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
+    global rocket_destroyed, pad_stuck_timer
 
     if rng.randint(1, 100) > 99:
         selected_pilot = 4
@@ -655,10 +677,12 @@ async def restart_game() -> bool:
     rocket_center_y = 0.0
     max_height = 0.0
     max_speed = 0.0
+    flight_time = 0.0
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
     pad_stuck_timer = 0.0
+    _reset_background_scroll()
     return True
 
 
@@ -713,6 +737,51 @@ def _get_background(path: str):
     return _background_cache[path]
 
 
+def _reset_background_scroll():
+    global _background_scroll_y
+    _background_scroll_y = 0.0
+
+
+def _slice_start_altitudes(slice_count: int) -> list[float]:
+    starts = [float(value) for value in BACKGROUND_SLICE_STARTS[:slice_count]]
+    while len(starts) < slice_count:
+        step = starts[-1] - starts[-2] if len(starts) >= 2 else 20_000.0
+        starts.append(starts[-1] + max(1.0, step))
+    return starts
+
+
+def _background_target_scroll(altitude: float) -> float:
+    """Map rocket altitude onto the authored background stack via slice thresholds."""
+    if not _background_slices:
+        return 0.0
+
+    slice_height = float(_background_slices[0].get_height())
+    slice_count = len(_background_slices)
+    starts = _slice_start_altitudes(slice_count)
+    last_band = starts[-1] - starts[-2] if slice_count >= 2 else 30_000.0
+    ends = starts[1:] + [starts[-1] + max(1.0, last_band)]
+    altitude = max(0.0, float(altitude))
+
+    for index, (start, end) in enumerate(zip(starts, ends)):
+        if altitude < end or index == slice_count - 1:
+            progress = (altitude - start) / max(1.0, end - start)
+            if index < slice_count - 1:
+                progress = max(0.0, min(1.0, progress))
+            else:
+                progress = max(0.0, progress)
+            return (index + progress) * slice_height
+
+    return (slice_count - 1) * slice_height
+
+
+def update_background_scroll(dt: float, altitude: float):
+    """Ease background scroll toward the height-based target (slow downward crawl)."""
+    global _background_scroll_y
+    target = _background_target_scroll(altitude)
+    follow = 1.0 - math.exp(-BACKGROUND_SCROLL_FOLLOW * max(0.0, dt))
+    _background_scroll_y += (target - _background_scroll_y) * follow
+
+
 def handle_background(scroll_y: float = 0, scroll_x: float = 0):
     if not _background_slices:
         return
@@ -752,22 +821,23 @@ def handle_camera():
         if not flight_parts:
             return
 
+        # Dead-zone camera: keep the rocket on-screen by scrolling exactly the
+        # overflow amount (same approach as X). The old velocity-minus-constant
+        # follow lagged by camera_scroll_speed every second, so long/slow climbs
+        # eventually drifted out the top of the frame.
         top_bound = SCREEN_HEIGHT / 2 - half_camera_boundry
+        bottom_bound = SCREEN_HEIGHT / 2 + half_camera_boundry
         left_bound = SCREEN_WIDTH / 2 - half_camera_boundry
         right_bound = SCREEN_WIDTH / 2 + half_camera_boundry
 
-        if rocket_center_y < top_bound and rocket.y_velocity > 0:
-            scroll = max(0.0, rocket.y_velocity - camera_scroll_speed) * dt
-            rocket_center_y += scroll
+        if rocket_center_y < top_bound:
+            scroll = top_bound - rocket_center_y
+            rocket_center_y = top_bound
             camera_scroll_y += scroll
-        elif rocket.y_velocity < 0:
-            # Falling: unwind the scroll we built up climbing, capped at what's
-            # left to unwind so the rocket free-falls normally once back at
-            # ground level (camera_scroll_y == 0).
-            excess = min(
-                max(0.0, -rocket.y_velocity - camera_scroll_speed) * dt,
-                camera_scroll_y,
-            )
+        elif rocket_center_y > bottom_bound and camera_scroll_y > 0:
+            # Falling: unwind climb scroll until ground (camera_scroll_y == 0),
+            # where the rocket is allowed below the dead zone again.
+            excess = min(rocket_center_y - bottom_bound, camera_scroll_y)
             rocket_center_y -= excess
             camera_scroll_y -= excess
 
@@ -823,8 +893,18 @@ async def frame():
             handle_camera()
             explosion_manager.update(dt)
             update_flight_part_positions()
-        handle_background(camera_scroll_y)
+            update_background_scroll(dt, rocket.height)
+        elif rocket is not None:
+            update_background_scroll(dt, rocket.height)
+        handle_background(_background_scroll_y, camera_scroll_x)
         if not rocket_destroyed:
+            thrusting = (
+                phase == Phase.FLIGHT
+                and rocket.fuel_remaining > 0
+                and rocket.total_thrust > 0
+            )
+            if thrusting:
+                engine_flames.step(dt)
             rotation_degrees = -math.degrees(rocket.rotation)
             for instance in flight_parts:
                 part = instance.instance
@@ -838,6 +918,13 @@ async def frame():
                     part_rotation_degrees += math.degrees(part.gimbal_angle)
                 rotated_image = pygame.transform.rotate(image, part_rotation_degrees)
                 screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
+            engine_flames.draw(
+                screen,
+                flight_parts,
+                rocket.rotation,
+                thrusting,
+                rotated_offset,
+            )
         explosion_manager.draw(screen)
         sidebar.draw(screen)
 

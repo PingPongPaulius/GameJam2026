@@ -1,15 +1,19 @@
 import pygame
 
+
 class SlideCover:
-    def __init__(self, rect, direction="down", duration=500):
+    def __init__(self, rect, direction="down", duration=500, frames=None):
         """
         rect: pygame.Rect - the final covered position/size (also used as draw mask)
-        direction: "down" or "up" - which way it slides to cover
+        direction: "down" or "up" - which way it slides to cover (ignored when frames are set)
         duration: animation duration in ms
+        frames: optional list of Surfaces sized to rect; when set, plays frames instead of sliding
         """
         self.rect = pygame.Rect(rect)
         self.direction = direction
         self.duration = duration
+        self.frames = list(frames) if frames else None
+        self.frame_index = 0
 
         # Start position is off-screen (above or below the target)
         self.start_rect = self.rect.copy()
@@ -25,15 +29,17 @@ class SlideCover:
         self.covered = False  # True once animation finishes and it's blocking input
 
     def trigger(self):
-        """Start the slide-in animation."""
+        """Start the slide-in / close animation."""
         if not self.covered:
             self.active = True
             self.start_time = pygame.time.get_ticks()
+            self.frame_index = 0
 
     def reset(self):
         """Snap the cover back open (unlocked)."""
         self.active = False
         self.covered = False
+        self.frame_index = 0
         self.current_rect = self.start_rect.copy()
 
     def update(self):
@@ -42,6 +48,15 @@ class SlideCover:
 
         elapsed = pygame.time.get_ticks() - self.start_time
         t = min(elapsed / self.duration, 1.0)
+
+        if self.frames:
+            n = len(self.frames)
+            self.frame_index = min(int(t * n), n - 1)
+            if t >= 1.0:
+                self.active = False
+                self.covered = True
+                self.frame_index = n - 1
+            return
 
         # Ease-out cubic for a nice deceleration feel
         eased_t = 1 - (1 - t) ** 3
@@ -62,6 +77,10 @@ class SlideCover:
         if not (self.active or self.covered):
             return
 
+        if self.frames:
+            surface.blit(self.frames[self.frame_index], self.rect)
+            return
+
         # Clip to the panel so the cover appears to emerge from the top edge
         # instead of being visible above the palette while sliding in.
         prev_clip = surface.get_clip()
@@ -76,4 +95,8 @@ class SlideCover:
 
     def is_blocking(self, point):
         """Check if a point (e.g. mouse click) is blocked by the cover."""
-        return self.covered and self.current_rect.collidepoint(point)
+        if not self.covered:
+            return False
+        if self.frames:
+            return self.rect.collidepoint(point)
+        return self.current_rect.collidepoint(point)

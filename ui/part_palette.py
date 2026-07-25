@@ -3,11 +3,16 @@ from dataclasses import dataclass
 
 import pygame
 
+from anime import Animation
 from rocket.part_data import PartDef
 from rocket.part_types import PartType
 
 from ui.slide_cover import SlideCover
 
+
+GARAGE_DOOR_SHEET = "Sprites/Animations/Animation_GarageDoor_Frame_363x606.png"
+GARAGE_DOOR_FRAME_SIZE = (363, 606)
+GARAGE_DOOR_DURATION_MS = 500
 
 TYPE_ORDER = [
     PartType.NOSE_CONE,
@@ -93,7 +98,26 @@ class PartPalette:
         else:
             cover_area = content_rect
 
-        self.cover = SlideCover(cover_area, direction="down")
+        self.cover = SlideCover(
+            cover_area,
+            direction="down",
+            duration=GARAGE_DOOR_DURATION_MS,
+            frames=self._load_garage_door_frames(cover_area.size),
+        )
+
+    @staticmethod
+    def _load_garage_door_frames(size):
+        loader = Animation()
+        loader.add(
+            "close",
+            GARAGE_DOOR_SHEET,
+            GARAGE_DOOR_FRAME_SIZE[0],
+            GARAGE_DOOR_FRAME_SIZE[1],
+        )
+        frames = loader.animations["close"].anime
+        if not frames:
+            return None
+        return [pygame.transform.smoothscale(frame, size) for frame in frames]
 
     def _fit_layout(self, part_defs, content_rect, item_size, padding, parts_per_row):
         grouped = self._group_part_defs(part_defs)
@@ -210,7 +234,7 @@ class PartPalette:
             pygame.draw.rect(surface, border_color, item.rect, 0 if item is self.hovered_item else 1)
 
         self.cover.update()
-        self.cover.draw(surface, color=(20, 20, 20))
+        self.cover.draw(surface)
 
     def lock_palette(self):
         """Call this ONCE to start the slide-in cover animation."""
@@ -253,7 +277,7 @@ class PartPalette:
         title_height = 30
         subtitle_height = 22
         stat_count = max(len(lines), 1)
-        panel_w = 220
+        panel_w = 280
         panel_h = padding * 2 + title_height + subtitle_height + stat_count * line_height
 
         panel_x = anchor_rect.right + 14

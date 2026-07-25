@@ -6,11 +6,11 @@ from ui.slide_cover import SlideCover
 
 SOURCE_SIZE = (420, 1080)
 PILOT_REGION = pygame.Rect(32, 28, 356, 300)
-ATTR_REGION = pygame.Rect(70, 355, 356, 88)
-PARTS_REGION = pygame.Rect(32, 460, 356, 630)
+ATTR_REGION = pygame.Rect(32, 340, 356, 88)
+PARTS_REGION = pygame.Rect(32, 440, 356, 630)
 # Full recessed panel opening in UI_Sidebar_Base (source coords).
 COVER_REGION = pygame.Rect(24, 444, 372, 608)
-PARTS_TOP_PADDING = 20
+PARTS_TOP_PADDING = 10
 
 
 def _scale_region(region: pygame.Rect, scale: float) -> pygame.Rect:
@@ -27,8 +27,7 @@ class BuildSidebar:
     def __init__(self, pilot: Pilot, part_defs, assets, screen_height: int):
         self.pilot = pilot
         self.assets = assets
-        self._name_font = pygame.font.SysFont(None, 28)
-        self._attr_font = pygame.font.SysFont(None, 22)
+        self._attr_font = pygame.font.SysFont(None, 20)
         self._portrait_surface = None
 
         base = pygame.image.load(self.SIDEBAR_IMAGE).convert_alpha()
@@ -100,16 +99,18 @@ class BuildSidebar:
         portrait_rect = self._portrait_surface.get_rect(center=self.pilot_region.center)
         surface.blit(self._portrait_surface, portrait_rect)
 
-        x = self.attr_region.x + 12
-        y = self.attr_region.y - 50
-        name_surf = self._name_font.render(self.pilot.name, True, (230, 236, 248))
-        surface.blit(name_surf, (x, y))
-        y += name_surf.get_height() + 30
-
-        for line in self._attribute_lines():
-            line_surf = self._attr_font.render(line, True, (170, 185, 210))
-            surface.blit(line_surf, (x, y))
-            y += line_surf.get_height() + 2
+        lines = [
+            self._attr_font.render(line, True, (170, 185, 210))
+            for line in self._attribute_lines()
+        ]
+        if lines:
+            line_gap = 2
+            block_height = sum(s.get_height() for s in lines) + line_gap * (len(lines) - 1)
+            y = self.attr_region.y + (self.attr_region.height - block_height) // 2
+            for line_surf in lines:
+                line_rect = line_surf.get_rect(centerx=self.attr_region.centerx, top=y)
+                surface.blit(line_surf, line_rect)
+                y += line_surf.get_height() + line_gap
 
         self.palette.draw(surface)
 

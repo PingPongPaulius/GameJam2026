@@ -11,7 +11,7 @@ class ScoreOverlay:
 
     MAX_NAME_LENGTH = 32
     PANEL_W = 460
-    LEADERBOARD_LIMIT = 5
+    LEADERBOARD_LIMIT = 10
     ROW_HEIGHT = 26
 
     def __init__(self, on_submit=None, on_restart=None):
@@ -21,6 +21,7 @@ class ScoreOverlay:
         self.name = ""
         self.height = 0.0
         self.max_speed = 0.0
+        self.flight_time = 0.0
         self.status = ""
         self.status_ok = None
         self.leaderboard = []
@@ -46,11 +47,12 @@ class ScoreOverlay:
         self._submit_rect = pygame.Rect(0, 0, 0, 0)
         self._restart_rect = pygame.Rect(0, 0, 0, 0)
 
-    def show(self, height: float, max_speed: float):
+    def show(self, height: float, max_speed: float, flight_time: float = 0.0):
         self.visible = True
         self.name = ""
         self.height = height
         self.max_speed = max_speed
+        self.flight_time = max(0.0, float(flight_time))
         self.status = ""
         self.status_ok = None
         self._submitting = False
@@ -175,13 +177,15 @@ class ScoreOverlay:
         y = panel.y + 24
         right = panel.right - 28
 
-        title = self._title_font.render("Flight Complete", True, (220, 232, 250))
+        title_text = "Mission successful" if self.height > 100_000 else "Mission failed"
+        title = self._title_font.render(title_text, True, (220, 232, 250))
         surface.blit(title, (x, y))
         y += 44
 
         for label, value in (
             ("Your height", f"{self.height:.0f} m"),
             ("Your top speed", f"{self.max_speed:.1f} m/s"),
+            ("Flight time", self._format_flight_time(self.flight_time)),
         ):
             label_surf = self._label_font.render(label, True, (150, 165, 185))
             value_surf = self._value_font.render(value, True, (235, 240, 248))
@@ -284,11 +288,20 @@ class ScoreOverlay:
         label = self._button_font.render(button_text, True, (230, 240, 235))
         surface.blit(label, label.get_rect(center=rect.center))
 
+    @staticmethod
+    def _format_flight_time(seconds: float) -> str:
+        seconds = max(0.0, float(seconds))
+        minutes = int(seconds // 60)
+        secs = seconds - minutes * 60
+        if minutes > 0:
+            return f"{minutes}:{secs:04.1f}"
+        return f"{secs:.1f} s"
+
     def _panel_height(self) -> int:
         rows = max(1, len(self.leaderboard)) if not self.leaderboard_error else 1
         if self._submitted:
-            return 300 + rows * self.ROW_HEIGHT
-        return 414 + rows * self.ROW_HEIGHT
+            return 330 + rows * self.ROW_HEIGHT
+        return 444 + rows * self.ROW_HEIGHT
 
     def _draw_leaderboard(self, surface, x: int, y: int, right: int) -> int:
         if self.leaderboard_error:

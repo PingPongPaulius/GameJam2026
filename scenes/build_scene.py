@@ -1,3 +1,5 @@
+import math
+
 import pygame
 from rocket.part_instance import PartInstance
 from rocket.part_types import PartType
@@ -5,6 +7,10 @@ from ui.drag_state import DragState
 
 SIDE_MOUNT_TYPES = {PartType.FIN, PartType.BOOSTER}
 COUNTDOWN_SECONDS = 30
+TIMER_FONT_SIZE = 64
+TIMER_PULSE_BELOW = 10
+TIMER_PULSE_HZ = 2.5
+TIMER_PULSE_AMOUNT = 0.18
 
 class BuildScene:
     def __init__(self, rocket, sidebar, build_area, assets, audio=None,
@@ -18,6 +24,7 @@ class BuildScene:
         self.time_remaining = countdown_seconds
         self.on_timeout = on_timeout
         self._done = False
+        self._timer_font = pygame.font.SysFont(None, TIMER_FONT_SIZE)
 
         self.lock_after_seconds = countdown_seconds
         self.elapsed = 0.0
@@ -36,6 +43,12 @@ class BuildScene:
         self.sidebar.unlock_palette()
 
     def handle_event(self, event): 
+        if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+            if not self._done:
+                self.time_remaining = 0.0
+                self.drag.cancel()
+            return
+
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             item = self.sidebar.item_at(event.pos)
             if item:
@@ -149,6 +162,8 @@ class BuildScene:
         if self.time_remaining == 0:
             if not self._locked:
                 self.sidebar.lock_palette()
+                if self.audio:
+                    self.audio.play("metal_shutter")
                 self._locked = True
             self._done = True
             if self.on_timeout:
@@ -203,12 +218,20 @@ class BuildScene:
                 image.set_alpha(120)
                 surface.blit(image, image.get_rect(center=self.drag.mouse_pos))
 
-        font = pygame.font.SysFont(None, 36)
-        timer_surf = font.render(f"{self.time_remaining:0.1f}s", True, (255, 255, 255))
-        stability_surf = font.render(f"Stability: {self.rocket.stability:.1f}", True, (255, 255, 255))
+        seconds = max(0, math.ceil(self.time_remaining - 1e-9))
+        pulsing = self.time_remaining < TIMER_PULSE_BELOW
+        color = (255, 70, 70) if pulsing else (255, 255, 255)
+        timer_surf = self._timer_font.render(str(seconds), True, color)
+        if pulsing:
+            pulse = 1.0 + TIMER_PULSE_AMOUNT * math.sin(
+                pygame.time.get_ticks() / 1000.0 * math.tau * TIMER_PULSE_HZ
+            )
+            w = max(1, int(timer_surf.get_width() * pulse))
+            h = max(1, int(timer_surf.get_height() * pulse))
+            timer_surf = pygame.transform.smoothscale(timer_surf, (w, h))
+
         center_x = self.sidebar.width + (surface.get_width() - self.sidebar.width) // 2
-        surface.blit(timer_surf, (center_x - 30, 20))
-        surface.blit(stability_surf, (center_x - 70, 55))
+        surface.blit(timer_surf, timer_surf.get_rect(center=(center_x, 48)))
 
         if not self.drag.active:
             self.sidebar.draw_tooltip(surface)
