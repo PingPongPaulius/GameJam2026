@@ -1,13 +1,22 @@
 {
+    "_notes": {
+    "units": {
+        "fuel_consumption": "1 is normal, 0.5 is half, 2.0 is double",
+        "weight_reduction": "1 is normal, 0.5 is half, 2.0 is double",
+        "thrust_increase": "1 is normal, 0.5 is half, 2.0 is double",
+        "drag_efficiency": "1 is normal, 0.5 is half, 2.0 is double"  
+    },
+    "implied_isp": "Isp = thrust*1000 / (fuel_consumption*1000 * 9.81)"
+    },
     "pilots": [
         {
             "id": 1,
             "name": "Human",
             "attributes": {
                 "fuel_consumption": 2.0,
-                "weight_reduction": 0.0,
-                "thrust_increase": 0.0,
-                "drag_efficiency": 3.0
+                "weight_reduction": 1.0,
+                "thrust_increase": 1.0,
+                "drag_efficiency": 0.75
             },
             "avatar": "Pilot_Human.png"
         },
@@ -18,7 +27,7 @@
                 "fuel_consumption": 0.5,
                 "weight_reduction": 2.0,
                 "thrust_increase": 3.0,
-                "drag_efficiency": 0.0
+                "drag_efficiency": 1.0
             },
             "avatar": "Pilot_Alien.png"
         },
@@ -28,8 +37,8 @@
             "attributes": {
                 "fuel_consumption": 1.0,
                 "weight_reduction": 0.0,
-                "thrust_increase": 0.0,
-                "drag_efficiency": 0.0
+                "thrust_increase": 1.0,
+                "drag_efficiency": 1.0
             },
             "avatar": "Pilot_Robot.png"
         },
@@ -37,10 +46,10 @@
             "id": 4,
             "name": "Pepe",
             "attributes": {
-                "fuel_consumption": 1.0,
-                "weight_reduction": 0.0,
-                "thrust_increase": 0.0,
-                "drag_efficiency": 0.0
+                "fuel_consumption": 0.2,
+                "weight_reduction": 10.0,
+                "thrust_increase": 10.0,
+                "drag_efficiency": 0.5
             },
             "avatar": "Pilot_Pepe.jpg"
         }

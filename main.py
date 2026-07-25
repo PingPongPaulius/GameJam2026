@@ -214,6 +214,12 @@ def update_flight(dt: float):
     global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase 
     global score_submit_timer, score_submit_armed, rocket_destroyed
 
+
+
+    DRAG_COEFFICIENT = 2e-5 * 30
+    THRUST_COEFFICIENT = 10
+
+
     # After an explosion, wait briefly so the VFX can play, then score.
     if rocket_destroyed:
         score_submit_timer += dt
@@ -221,9 +227,7 @@ def update_flight(dt: float):
             _show_score_overlay()
         return
 
-    DRAG_COEFFICIENT = 2e-5 * 30 * rocket.drag_reduction_factor
-    THRUST_COEFFICIENT = 10
-
+    
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
         -DRAG_COEFFICIENT * rocket.y_velocity * abs(rocket.y_velocity) * rocket.total_drag
