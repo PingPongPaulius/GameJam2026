@@ -1,6 +1,11 @@
 import json
 from dataclasses import dataclass
+from pathlib import Path
+
 from rocket.part_types import PartType
+
+DEFAULT_PARTS_PATH = Path("data/parts_new.json")
+
 
 @dataclass(frozen=True)
 class PartDef:
@@ -19,13 +24,13 @@ class PartDef:
     cone: bool = False
     drag_reduction_factor: float = 1.0
 
-def load_part_catalog(path="data/parts_new.json") -> dict[str, PartDef]:
-    with open(path) as f:
-        raw = json.load(f)
+
+def parse_part_catalog(raw: dict) -> dict[str, PartDef]:
     catalog = {}
-    for e in raw["parts"]:
+    for e in raw.get("parts", []):
         part = PartDef(
-            id=e["id"], name=e["name"],
+            id=e["id"],
+            name=e["name"],
             part_type=PartType[e["part_type"]],
             weight=e["weight"],
             thrust=e.get("thrust", 0.0),
@@ -37,9 +42,20 @@ def load_part_catalog(path="data/parts_new.json") -> dict[str, PartDef]:
             sprite=e.get("sprite", ""),
             gimbal=e.get("gimbal", False),
             cone=e.get("cone", False),
-            drag_reduction_factor=e.get("drag_reduction_factor", 1.0)
+            drag_reduction_factor=e.get("drag_reduction_factor", 1.0),
         )
         catalog[part.id] = part
     return catalog
 
-PART_CATALOG = load_part_catalog()
+
+def set_part_catalog(catalog: dict[str, PartDef]) -> None:
+    PART_CATALOG.clear()
+    PART_CATALOG.update(catalog)
+
+
+def load_part_catalog_from_file(path: str | Path = DEFAULT_PARTS_PATH) -> dict[str, PartDef]:
+    with open(path, encoding="utf-8") as f:
+        return parse_part_catalog(json.load(f))
+
+
+PART_CATALOG: dict[str, PartDef] = {}

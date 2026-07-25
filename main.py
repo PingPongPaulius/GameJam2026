@@ -12,11 +12,22 @@ from Tokens.token import Token, Player, Platform
 from UI import Button
 from anime import Animation
 
-from rocket.part_data import PART_CATALOG
+from rocket.part_data import (
+    PART_CATALOG,
+    load_part_catalog_from_file,
+    parse_part_catalog,
+    set_part_catalog,
+)
 from rocket.pilot import Pilot, PilotAttributes, default_mission, mission_alien, mission_human, mission_robot
-from rocket.pilot_data import PILOT_CATALOG
+from rocket.pilot_data import (
+    PILOT_CATALOG,
+    load_pilots_from_file,
+    parse_pilots,
+    set_pilot_catalog,
+)
 from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
+from api.catalog_client import fetch_parts, fetch_pilots
 from api.highscore_client import submit_highscore
 from ui.build_sidebar import BuildSidebar
 from ui.rocket_debug_panel import RocketDebugPanel
@@ -70,38 +81,16 @@ show_rocket_debug = True
 enable_snap_draws = False
 
 assets = AnimationAssetAdapter()
-pilots = PILOT_CATALOG
-
-if rng.randint(1, 100) > 99:
-    selected_pilot = 4
-else:
-    selected_pilot = rng.randint(1,3)
-
 missions = {0: default_mission, 1: mission_alien, 2: mission_human, 3: mission_robot}
-pilot = Pilot(
-    name=pilots[selected_pilot].name,
-    attributes=PilotAttributes(**pilots[selected_pilot].attributes),
-    portrait_sprite=pilots[selected_pilot].avatar,
-    mission = missions[pilots[selected_pilot].mission],
-)
-rocket = Rocket(pilot)
 
-sidebar = BuildSidebar(
-    pilot,
-    list(PART_CATALOG.values()),
-    assets,
-    SCREEN_HEIGHT,
-)
-build_area = BuildArea(
-    anchor_pos=(
-        sidebar.width + (SCREEN_WIDTH - sidebar.width) / 2,
-        SCREEN_HEIGHT - slot_height // 2 - 24,
-    ),
-    slot_height=slot_height,
-    slot_count=slot_count,
-    horizontal_snap_points=horizontal_snap_points,
-    enable_snap_draws=enable_snap_draws,
-)
+catalogs_ready = False
+pilots = PILOT_CATALOG
+selected_pilot = 1
+pilot = None
+rocket = None
+sidebar = None
+build_area = None
+build_scene = None
 
 flight_parts = []
 V = 0
@@ -122,9 +111,49 @@ _background_cache = {}
 _background_slices = []
 
 
+def _flight_rocket_payload() -> dict | None:
+    """Pick one part id per required slot from the flown rocket."""
+    slot_types = {
+        "nose_cone_id": PartType.NOSE_CONE,
+        "fuel_tank_id": PartType.FUEL_TANK,
+        "engine_id": PartType.ENGINE,
+        "fin_id": PartType.FIN,
+    }
+    by_type = {}
+    source_parts = rocket.parts if rocket is not None else []
+    for part in source_parts:
+        part_type = part.part_def.part_type
+        if part_type in slot_types.values() and part_type not in by_type:
+            by_type[part_type] = part.part_def.id
+
+    rocket_payload = {}
+    for key, part_type in slot_types.items():
+        part_id = by_type.get(part_type)
+        if not part_id:
+            return None
+        rocket_payload[key] = part_id
+    return rocket_payload
+
+
 async def on_score_submit(name: str, height: float, top_speed: float):
-    ok, message = await submit_highscore(name, height, top_speed=top_speed)
-    print(f"Highscore API: ok={ok} name={name!r} height={height:.0f} top_speed={top_speed:.1f} ({message})")
+    rocket_payload = _flight_rocket_payload()
+    if rocket_payload is None:
+        message = "Rocket needs a nose cone, fuel tank, engine, and fins to submit"
+        print(f"Highscore API: ok=False ({message})")
+        return False, message
+
+    ok, message = await submit_highscore(
+        name,
+        height,
+        pilot_id=selected_pilot,
+        rocket=rocket_payload,
+        top_speed=top_speed,
+    )
+    print(
+        f"Highscore API: ok={ok} name={name!r} height={height:.0f} "
+        f"top_speed={top_speed:.1f} pilot_id={selected_pilot} "
+        f"rocket={rocket_payload} ({message})"
+    )
     return ok, message
 
 
@@ -408,27 +437,149 @@ def start_flight():
         instance.local_dx = instance.x - pivot_x
         instance.local_dy = instance.y - pivot_y
 
-main_menu_scene = MainMenuScene(screen, on_phase_change=set_phase)
+def catalogs_are_ready() -> bool:
+    return catalogs_ready
 
-build_scene = BuildScene(
-    rocket=rocket,
-    sidebar=sidebar,
-    build_area=build_area,
-    assets=assets,
-    countdown_seconds=build_countdown_seconds,
-    on_timeout=start_flight,
+
+main_menu_scene = MainMenuScene(
+    screen,
+    on_phase_change=set_phase,
+    can_start=catalogs_are_ready,
 )
 rocket_debug_panel = RocketDebugPanel()
 
-def restart_game():
-    """Return to a fresh build phase after submitting a score."""
-    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y 
+
+def _pick_pilot_id():
+    if not PILOT_CATALOG:
+        raise RuntimeError("No pilots loaded")
+    if rng.randint(1, 100) > 99 and 4 in PILOT_CATALOG:
+        return 4
+    choices = [pid for pid in PILOT_CATALOG if pid != 4]
+    if choices:
+        return rng.choice(choices)
+    return next(iter(PILOT_CATALOG))
+
+
+def apply_catalogs_to_game():
+    """Rebuild pilot/rocket/sidebar/build scene from the current catalogs."""
+    global pilots, selected_pilot, pilot, rocket, sidebar, build_area, build_scene
+
+    pilots = PILOT_CATALOG
+    selected_pilot = _pick_pilot_id()
+    pilot_def = pilots[selected_pilot]
+    pilot = Pilot(
+        name=pilot_def.name,
+        attributes=PilotAttributes(**pilot_def.attributes),
+        portrait_sprite=pilot_def.avatar,
+        mission=missions.get(pilot_def.mission, default_mission),
+    )
+    rocket = Rocket(pilot)
+    sidebar = BuildSidebar(
+        pilot,
+        list(PART_CATALOG.values()),
+        assets,
+        SCREEN_HEIGHT,
+    )
+    build_area = BuildArea(
+        anchor_pos=(
+            sidebar.width + (SCREEN_WIDTH - sidebar.width) / 2,
+            SCREEN_HEIGHT - slot_height // 2 - 24,
+        ),
+        slot_height=slot_height,
+        slot_count=slot_count,
+        horizontal_snap_points=horizontal_snap_points,
+        enable_snap_draws=enable_snap_draws,
+    )
+    if build_scene is None:
+        build_scene = BuildScene(
+            rocket=rocket,
+            sidebar=sidebar,
+            build_area=build_area,
+            assets=assets,
+            countdown_seconds=build_countdown_seconds,
+            on_timeout=start_flight,
+        )
+    else:
+        build_scene.rocket = rocket
+        build_scene.sidebar = sidebar
+        build_scene.build_area = build_area
+        build_scene.reset(build_countdown_seconds)
+
+
+def load_catalogs_from_files() -> tuple[bool, str]:
+    """Load parts + pilots from bundled JSON files."""
+    try:
+        parts = load_part_catalog_from_file()
+        pilots = load_pilots_from_file()
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return False, f"Local catalog files: {exc}"
+
+    if not parts or not pilots:
+        return False, "Local catalog files were empty"
+
+    set_part_catalog(parts)
+    set_pilot_catalog(pilots)
+    return True, f"Loaded offline {len(parts)} parts, {len(pilots)} pilots"
+
+
+async def load_catalogs() -> tuple[bool, str]:
+    """Fetch parts + pilots from the API, falling back to local JSON if needed."""
+    global catalogs_ready
+
+    parts_ok, parts_result = await fetch_parts()
+    pilots_ok, pilots_result = await fetch_pilots()
+    if parts_ok and pilots_ok:
+        set_part_catalog(parse_part_catalog(parts_result))
+        set_pilot_catalog(parse_pilots(pilots_result))
+        if PART_CATALOG and PILOT_CATALOG:
+            apply_catalogs_to_game()
+            catalogs_ready = True
+            return True, f"Loaded {len(PART_CATALOG)} parts, {len(PILOT_CATALOG)} pilots from API"
+        api_error = "API returned empty catalogs"
+    else:
+        reasons = []
+        if not parts_ok:
+            reasons.append(f"parts: {parts_result}")
+        if not pilots_ok:
+            reasons.append(f"pilots: {pilots_result}")
+        api_error = "; ".join(reasons)
+
+    print(f"Catalog API unavailable ({api_error}); trying local JSON fallback")
+    ok, message = load_catalogs_from_files()
+    if not ok:
+        catalogs_ready = False
+        return False, f"{api_error}; {message}"
+
+    apply_catalogs_to_game()
+    catalogs_ready = True
+    return True, f"{message} (API unavailable: {api_error})"
+
+
+async def refresh_catalogs_for_menu():
+    main_menu_scene.status_text = "Loading parts & pilots..."
+    ok, message = await load_catalogs()
+    if ok:
+        offline = "offline" in message.lower() or "API unavailable" in message
+        main_menu_scene.status_text = "Playing offline (local parts/pilots)" if offline else ""
+        print(f"Catalogs: {message}")
+    else:
+        main_menu_scene.status_text = f"Failed to load game data: {message}"
+        print(f"Catalog load failed: {message}")
+
+
+async def restart_game() -> bool:
+    """Reload catalogs (API or local fallback), then return to a fresh build phase."""
+    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
     global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
 
-    rocket.reset()
+    ok, message = await load_catalogs()
+    if not ok:
+        print(f"Catalog reload failed on restart: {message}")
+        return False
+    print(f"Catalogs on restart: {message}")
+
     flight_parts.clear()
     explosion_manager.clear()
-    build_scene.reset(build_countdown_seconds)
     phase = Phase.BUILD
     V = 0
     W = 0
@@ -442,6 +593,7 @@ def restart_game():
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
+    return True
 
 
 score_overlay.on_restart = restart_game
@@ -579,14 +731,14 @@ async def frame():
             return False
         if score_overlay.visible and score_overlay.handle_event(event):
             continue
-        if phase == Phase.BUILD:
+        if phase == Phase.BUILD and build_scene is not None:
             build_scene.handle_event(event)
 
     screen.fill(BG_COLOR)
     if phase == Phase.MENU:
         main_menu_scene.update(dt)
         main_menu_scene.draw(screen)
-    if phase == Phase.BUILD:
+    if phase == Phase.BUILD and build_scene is not None:
         handle_background()
         build_scene.update(dt)
         build_scene.draw(screen)
@@ -616,7 +768,7 @@ async def frame():
         explosion_manager.draw(screen)
         sidebar.draw(screen)
 
-    if show_rocket_debug:
+    if show_rocket_debug and rocket is not None:
         if phase == Phase.BUILD or phase == Phase.FLIGHT:
             rocket_debug_panel.draw(
                 screen,
@@ -637,6 +789,7 @@ async def frame():
 
 async def main():
     _background_slices.extend(_load_background_slices())
+    asyncio.create_task(refresh_catalogs_for_menu())
     running = True
     while running:
         running = await frame()

@@ -397,5 +397,22 @@ class ScoreOverlay:
     def _try_restart(self):
         if self._submitting or not self.on_restart:
             return
-        self.on_restart()
-        self.hide()
+        result = self.on_restart()
+        if inspect.isawaitable(result):
+            self._schedule(self._restart_async(result))
+        else:
+            self.hide()
+
+    async def _restart_async(self, coro):
+        self._submitting = True
+        self.status = "Loading game data..."
+        self.status_ok = None
+        try:
+            ok = await coro
+            if ok is False:
+                self.status = "Failed to reload game data"
+                self.status_ok = False
+                return
+            self.hide()
+        finally:
+            self._submitting = False
