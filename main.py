@@ -13,7 +13,7 @@ from UI import Button
 from anime import Animation
 
 from rocket.part_data import PART_CATALOG
-from rocket.pilot import Pilot, PilotAttributes
+from rocket.pilot import Pilot, PilotAttributes, default_mission, mission_alien, mission_human, mission_robot
 from rocket.pilot_data import PILOT_CATALOG
 from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
@@ -110,10 +110,12 @@ if rng.randint(1, 100) > 99:
 else:
     selected_pilot = rng.randint(1,3)
 
+missions = {0: default_mission, 1: mission_alien, 2: mission_human, 3: mission_robot}
 pilot = Pilot(
     name=pilots[selected_pilot].name,
     attributes=PilotAttributes(**pilots[selected_pilot].attributes),
     portrait_sprite=pilots[selected_pilot].avatar,
+    mission = missions[pilots[selected_pilot].mission],
 )
 rocket = Rocket(pilot)
 
@@ -209,8 +211,14 @@ def _trigger_explosion(failure):
 
 
 def update_flight(dt: float):
-    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase, stable
+    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase 
     global score_submit_timer, score_submit_armed, rocket_destroyed
+
+
+
+    DRAG_COEFFICIENT = 2e-5 * 30
+    THRUST_COEFFICIENT = 10
+
 
     # After an explosion, wait briefly so the VFX can play, then score.
     if rocket_destroyed:
@@ -219,9 +227,7 @@ def update_flight(dt: float):
             _show_score_overlay()
         return
 
-    DRAG_COEFFICIENT = 2e-5 * 30
-    THRUST_COEFFICIENT = 10
-
+    
     has_fuel = rocket.fuel_remaining > 0
     y_drag_accel = (
         -DRAG_COEFFICIENT * rocket.y_velocity * abs(rocket.y_velocity) * rocket.total_drag
@@ -334,11 +340,15 @@ def update_flight(dt: float):
     UP = rocket.y_velocity
 
     landed = previous_height > 1.0 and rocket.height <= 0.0
+    explode = True
+    for part in flight_parts:
+        if part.instance.part_def.part_type == PartType.FIN:
+            explode = False
     failure = check_flight_failure(
         rocket,
         landed=landed,
         impact_speed=impact_speed,
-        force_failure=not stable,
+        force_failure=explode,
     )
     if failure:
         _trigger_explosion(failure)
@@ -398,14 +408,19 @@ def start_flight():
     rocket.rotation = 0.0
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
-    stable = False
+    rocket.rotation_acceleration = 0.0
+    rocket.drag_reduction_factor = rocket.min_drag_reduction_factor
+    parts_used = set()
+    is_robot_part_used = False
     for instance in build_scene.rocket.parts:
         instance.gimbal_angle = 0.0
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
-        if (instance.part_def.part_type == PartType.FIN):
-            stable = True
+        parts_used.add(instance.part_def.name)
+        print(instance.part_def.name)
+        if "Nose" in instance.part_def.name:
+            is_robot_part_used = True
     
 
     total_weight = sum(instance.instance.part_def.weight for instance in flight_parts)
@@ -425,6 +440,8 @@ def start_flight():
         instance.local_dy = instance.y - pivot_y
 
 main_menu_scene = MainMenuScene(screen, on_phase_change=set_phase)
+data = {'time': build_scene.last_placed, 'parts': len(parts_used), 'battery': is_robot_part_used}
+rocket.apply_pilot_effects(data)
 
 build_scene = BuildScene(
     rocket=rocket,
@@ -436,11 +453,10 @@ build_scene = BuildScene(
 )
 rocket_debug_panel = RocketDebugPanel()
 
-stable = False
 
 def restart_game():
     """Return to a fresh build phase after submitting a score."""
-    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y, stable
+    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y 
     global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
 
     rocket.reset()
@@ -460,7 +476,6 @@ def restart_game():
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
-    stable = False
 
 
 score_overlay.on_restart = restart_game

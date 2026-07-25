@@ -30,10 +30,10 @@ class RocketDebugPanel:
         lines += [
             ("Velocity", f"{rocket.y_velocity:.1f}"),
             ("Height", f"{rocket.height:.0f}"),
-            ("xAcceleration", f"{rocket.x_acceleration:.1f}"),
-            ("yAcceleration", f"{rocket.y_acceleration:.1f}"),
-            ("Acceleration", f"{rocket.acceleration:.1f}"),
-            
+            ("xAcceleration(g)", f"{rocket.x_acceleration / 9.81:.1f}"),
+            ("yAcceleration(g)", f"{rocket.y_acceleration / 9.81:.1f}"),
+            ("Acceleration(g)", f"{rocket.acceleration / 9.81:.1f}"),
+
             ("Rotation", f"{rocket.rotation * 180 / 3.14159:.2f}"),
             ("Fuel", f"{rocket.fuel_remaining:.0f} / {rocket.total_fuel_capacity:.0f}"),
             ("Heat", f"{rocket.heat:.1f}"),

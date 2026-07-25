@@ -28,7 +28,16 @@ class Rocket:
         self.rotation_inertia = 0.0
         self.COM_x = 0.0
         self.COT_x= 0.0
-        
+        self.pilot_attributes = (1.0, 1.0, 1.0, 1.0) #fuel_consumption,weight_reduction,thrust_increase,drag_efficiency
+        self.drag_reduction_factor = 1.0
+
+    @property
+    def min_drag_reduction_factor(self) -> float:
+        if not self.parts:
+            return 1.0
+        x = [p.part_def.drag_reduction_factor for p in self.parts if p.part_def.cone]
+        x.append(1.0)
+        return min(x) * self.pilot_attributes[3]
 
     def add_part(self, part: PartInstance):
         self.parts.append(part)
@@ -57,15 +66,15 @@ class Rocket:
 
     @property  # in tons
     def total_weight(self) -> float:
-        return sum(p.part_def.weight for p in self.parts)
+        return sum(p.part_def.weight for p in self.parts) / self.pilot_attributes[1]
 
     @property  # in kN
     def total_thrust(self) -> float:
-        return sum(p.part_def.thrust for p in self.parts) if self.fuel_remaining > 0 else 0
+        return sum(p.part_def.thrust for p in self.parts) * self.pilot_attributes[2] if self.fuel_remaining > 0 else 0
 
     @property
     def total_drag(self) -> float:
-        return sum(p.part_def.drag for p in self.parts)
+        return sum(p.part_def.drag for p in self.parts) * self.drag_reduction_factor * self.pilot_attributes[3]
 
     @property  # in tons of fuel
     def total_fuel_capacity(self) -> float:
@@ -77,7 +86,7 @@ class Rocket:
 
     @property
     def total_fuel_consumption(self) -> float:  # tons per second
-        return sum(p.part_def.fuel_consumption for p in self.parts)
+        return sum(p.part_def.fuel_consumption for p in self.parts) * self.pilot_attributes[0]
 
     @property
     def stability(self) -> float:
@@ -235,6 +244,17 @@ class Rocket:
     def is_launch_ready(self) -> bool:
         return len(self.validate()) == 0
     
+    def apply_pilot_modifiers(self):
+        print(f"""{self.pilot.attributes.fuel_consumption}
+        {self.pilot.attributes.weight_reduction}
+        {self.pilot.attributes.thrust_increase}
+        {self.pilot.attributes.drag_efficiency}""")
+        self.pilot_attributes = (self.pilot.attributes.fuel_consumption,self.pilot.attributes.weight_reduction,self.pilot.attributes.thrust_increase,self.pilot.attributes.drag_efficiency)
+    
+
+    def apply_pilot_effects(self, data):
+        if self.pilot.mission(data):
+            self.apply_pilot_modifiers()
 
     def render(self, surface, assets, pos):
         for instance in self.parts:
