@@ -28,6 +28,7 @@ class Rocket:
         self.rotation_inertia = 0.0
         self.COM_x = 0.0
         self.COT_x= 0.0
+        self.pilot_attributes = (0,0,0,0)
         
 
     def add_part(self, part: PartInstance):
@@ -236,11 +237,14 @@ class Rocket:
         return len(self.validate()) == 0
     
     def apply_pilot_modifiers(self):
-        print("Apply")
+        print(f"""{self.pilot.attributes.fuel_consumption}
+        {self.pilot.attributes.weight_reduction}
+        {self.pilot.attributes.thrust_increase}
+        {self.pilot.attributes.drag_efficiency}""")
+        self.pilot_attributes = (self.pilot.attributes.fuel_consumption,self.pilot.attributes.weight_reduction,self.pilot.attributes.thrust_increase,self.pilot.attributes.drag_efficiency)
     
 
     def apply_pilot_effects(self, data):
-        print(data)
         if self.pilot.mission(data):
             self.apply_pilot_modifiers()
 
