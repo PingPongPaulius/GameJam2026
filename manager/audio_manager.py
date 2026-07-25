@@ -1,8 +1,12 @@
+import sys
 import pygame
 
 # Wind is silent at/below MIN, full volume at/above MAX. Tune to feel.
 WIND_MIN_SPEED = 20.0
 WIND_MAX_SPEED = 200.0
+
+# Pygbag / python-wasm needs OGG; desktop keeps MP3.
+AUDIO_EXT = "ogg" if sys.platform == "emscripten" else "mp3"
 
 
 class AudioManager:
@@ -10,9 +14,9 @@ class AudioManager:
         pygame.mixer.init()
         self._sounds = {
             #"part_place": pygame.mixer.Sound("Sounds/part_place.ogg"),
-            "engine": pygame.mixer.Sound("audio/rocket-boost.mp3"),
-            "wind": pygame.mixer.Sound("audio/wind.mp3"),
-            "explosion": pygame.mixer.Sound("audio/explosion.mp3"),
+            "engine": pygame.mixer.Sound(f"audio/rocket-boost.{AUDIO_EXT}"),
+            "wind": pygame.mixer.Sound(f"audio/wind.{AUDIO_EXT}"),
+            "explosion": pygame.mixer.Sound(f"audio/explosion.{AUDIO_EXT}"),
         }
         self._channels = {
             "engine": pygame.mixer.Channel(0),

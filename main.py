@@ -5,8 +5,8 @@ import random as rng
 from typing import Optional
 from enums.phases import Phase
 
+import asyncio
 import pygame
-
 
 from Tokens.token import Token, Player, Platform
 from UI import Button
@@ -37,11 +37,6 @@ explosion_manager = ExplosionManager()
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
 BG_COLOR = (20, 20, 20)
-
-# Get the desktop size and set the screen size to 80% of it
-desktop_w, desktop_h = pygame.display.get_desktop_sizes()[0]
-SCREEN_WIDTH = int(desktop_w * 0.8)
-SCREEN_HEIGHT = int(desktop_h * 0.8)
 
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
@@ -75,17 +70,18 @@ exit_button = Button(0, 0, 100, 40, label="Exit")
 exit_button.active = True
 
 class AnimationAssetAdapter:
-    def __init__(self, animation_loader: Animation, sprite_dir="Sprites/parts/", default_size=(64, 64)):
-        self.loader = animation_loader
+    def __init__(self, sprite_dir="Sprites/parts/", default_size=(64, 64)):
         self.sprite_dir = sprite_dir
         self.default_size = default_size
         self._cache = {}
 
     def get_image(self, filename: str):
         if filename not in self._cache:
-            w, h = self.default_size
-            frames = self.loader.load_sprites(f"{self.sprite_dir}{filename}", w, h, 1)
-            self._cache[filename] = frames[0] if isinstance(frames, (list, tuple)) else frames
+            path = f"{self.sprite_dir}{filename}"
+            image = pygame.image.load(path).convert_alpha()
+            if image.get_size() != self.default_size:
+                image = pygame.transform.smoothscale(image, self.default_size)
+            self._cache[filename] = image
         return self._cache[filename]
 
 # Variables for the build area and the rocket
@@ -102,7 +98,7 @@ _locked = False
 show_rocket_debug = True
 enable_snap_draws = False
 
-assets = AnimationAssetAdapter(loader)
+assets = AnimationAssetAdapter()
 pilots = PILOT_CATALOG
 
 if rng.randint(1, 100) > 99:
@@ -605,7 +601,7 @@ def handle_camera():
             token.hitbox.x += (player.speed - camera_scroll_speed)
 
 
-def frame():
+async def frame():
     global dt, phase
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -667,13 +663,17 @@ def frame():
 
     pygame.display.flip()
     dt = clock.tick(FPS) / 1000
+    # Yield to the browser event loop (required for pygbag / python-wasm).
+    await asyncio.sleep(0)
     return True
 
 
-if __name__ == "__main__":
+async def main():
     _background_slices.extend(_load_background_slices())
     running = True
     while running:
-        running = frame()
+        running = await frame()
 
-    pygame.quit()
+
+if __name__ == "__main__":
+    asyncio.run(main())

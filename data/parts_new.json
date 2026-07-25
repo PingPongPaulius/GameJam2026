@@ -19,7 +19,7 @@
       "weight": 0.1,
       "drag": 0.1,
       "stability_contribution": 0.5,
-      "sprite": "nosecone_basic.png",
+      "sprite": "NoseCone_CarbonNeedle.png",
       "cone": true,
       "drag_reduction_factor": 0.5
     },
@@ -30,7 +30,7 @@
       "weight": 0.15,
       "drag": 0.2,
       "stability_contribution": 0.5,
-      "sprite": "nosecone_basic.png",
+      "sprite": "NoseCone_Standard.png",
       "cone": true,
       "drag_reduction_factor": 0.6
     },
@@ -41,7 +41,7 @@
       "weight": 0.2,
       "drag": 0.5,
       "stability_contribution": 0.4,
-      "sprite": "nosecone_basic.png",
+      "sprite": "NoseCone_BluntCargo.png",
       "cone": true,
       "drag_reduction_factor": 0.7
     },
@@ -54,7 +54,7 @@
       "drag": 0.3,
       "fuel_capacity": 4.0,
       "stability_contribution": 0.5,
-      "sprite": "fueltank_basic.png"
+      "sprite": "FuelCell_Compact.png"
     },
     {
       "id": "extended_fuel_tank",
@@ -64,7 +64,7 @@
       "drag": 0.35,
       "fuel_capacity": 9.0,
       "stability_contribution": 0.5,
-      "sprite": "fueltank_basic.png"
+      "sprite": "FuelCell_Extended.png"
     },
     {
       "id": "cryogenic_fuel_tank",
@@ -74,7 +74,7 @@
       "drag": 0.32,
       "fuel_capacity": 7.0,
       "stability_contribution": 0.5,
-      "sprite": "fueltank_basic.png"
+      "sprite": "FuelCell_Cryogenic.png"
     },
 
     {
@@ -86,7 +86,7 @@
       "thrust": 40.0,
       "heat_dissipation": 0.5,
       "fuel_consumption": 0.04,
-      "sprite": "engine_basic.png"
+      "sprite": "Engine_Small.png"
     },
     {
       "id": "medium_engine",
@@ -97,7 +97,7 @@
       "thrust": 100.0,
       "heat_dissipation": 0.5,
       "fuel_consumption": 0.14,
-      "sprite": "engine_basic.png"
+      "sprite": "Engine_Medium.png"
     },
     {
       "id": "heavy_booster_engine",
@@ -108,7 +108,7 @@
       "thrust": 300.0,
       "heat_dissipation": 0.5,
       "fuel_consumption": 0.5,
-      "sprite": "engine_basic.png"
+      "sprite": "Engine_Heavy.png"
     },
     {
       "id": "vacuum_engine",
@@ -119,7 +119,7 @@
       "thrust": 60.0,
       "heat_dissipation": 0.5,
       "fuel_consumption": 0.07,
-      "sprite": "engine_basic.png"
+      "sprite": "Engine_Vacuum.png"
     },
     {
       "id": "vector_engine",
@@ -130,7 +130,7 @@
       "thrust": 120.0,
       "heat_dissipation": 0.5,
       "fuel_consumption": 0.082,
-      "sprite": "engine_basic.png",
+      "sprite": "Engine_Vector.png",
       "gimbal": true
     },
 
@@ -141,7 +141,7 @@
       "weight": 0.05,
       "drag": 0.15,
       "stability_contribution": 6.0,
-      "sprite": "fin_basic.png"
+      "sprite": "StabilizerFin_Small.png"
     },
     {
       "id": "large_stabilizer_fins",
@@ -150,7 +150,7 @@
       "weight": 0.12,
       "drag": 0.35,
       "stability_contribution": 12.0,
-      "sprite": "fin_basic.png"
+      "sprite": "StabilizerFin_Large.png"
     }
   ]
 }
