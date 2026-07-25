@@ -3,7 +3,7 @@ import glob
 import re
 import random as rng
 from typing import Optional
-from enum import Enum, auto
+from enums.phases import Phase
 
 import pygame
 
@@ -23,6 +23,7 @@ from ui.rocket_debug_panel import RocketDebugPanel
 from ui.score_overlay import ScoreOverlay
 from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
+from scenes.main_menu_scene import MainMenuScene
 from rendering.rocket_renderer import draw_rocket
 from vector import Vector
 from manager.audio_manager import AudioManager
@@ -47,13 +48,6 @@ clock = pygame.time.Clock()
 FPS = 60
 dt = 1/FPS
 
-
-class Phase(Enum):
-    BUILD = auto()
-    FLIGHT = auto()
-    RESULTS = auto()
-
-
 class InstanceWrapper:
 
     def __init__(self, instance, pos):
@@ -69,7 +63,7 @@ class InstanceWrapper:
         return (self.x, self.y)
 
 
-phase = Phase.BUILD
+phase = Phase.MENU
 
 tokens = []
 
@@ -164,6 +158,10 @@ def on_score_submit(name: str, height: float, top_speed: float):
     print(f"Highscore API: ok={ok} name={name!r} height={height:.0f} top_speed={top_speed:.1f} ({message})")
     return ok, message
 
+
+def set_phase(new_phase):
+    global phase
+    phase = new_phase
 
 score_overlay = ScoreOverlay(on_submit=on_score_submit)  # on_restart set after build_scene
 
@@ -426,6 +424,7 @@ def start_flight():
         instance.local_dx = instance.x - pivot_x
         instance.local_dy = instance.y - pivot_y
 
+main_menu_scene = MainMenuScene(screen, on_phase_change=set_phase)
 
 build_scene = BuildScene(
     rocket=rocket,
@@ -465,7 +464,6 @@ def restart_game():
 
 
 score_overlay.on_restart = restart_game
-
 
 def get_all_collisions(movable) -> list:
     collisions = []
@@ -604,7 +602,9 @@ def frame():
             build_scene.handle_event(event)
 
     screen.fill(BG_COLOR)
-
+    if phase == Phase.MENU:
+        main_menu_scene.update(dt)
+        main_menu_scene.draw(screen)
     if phase == Phase.BUILD:
         handle_background()
         build_scene.update(dt)
@@ -640,12 +640,13 @@ def frame():
     exit_button.render(screen)
 
     if show_rocket_debug:
-        rocket_debug_panel.draw(
-            screen,
-            rocket,
-            in_flight=phase in (Phase.FLIGHT, Phase.RESULTS),
-            position=(rocket.x_position, rocket.height),
-        )
+        if phase == Phase.BUILD or phase == Phase.FLIGHT:
+            rocket_debug_panel.draw(
+                screen,
+                rocket,
+                in_flight=phase in (Phase.FLIGHT, Phase.RESULTS),
+                position=(rocket.x_position, rocket.height),
+            )
 
     score_overlay.update(dt)
     score_overlay.draw(screen)
