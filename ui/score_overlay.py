@@ -387,7 +387,7 @@ class ScoreOverlay:
         self._schedule(self._submit_async(name))
 
     async def _submit_async(self, name: str):
-        result = self.on_submit(name, self.height, self.max_speed)
+        result = self.on_submit(name, self.height, self.max_speed, self.flight_time)
         if inspect.isawaitable(result):
             result = await result
 

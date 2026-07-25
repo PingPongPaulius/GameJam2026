@@ -1,7 +1,7 @@
 import math
 import glob
 import re
-import random as rng
+import secrets
 from typing import Optional
 from enums.phases import Phase
 
@@ -143,7 +143,9 @@ def _flight_rocket_payload() -> dict | None:
     }
 
 
-async def on_score_submit(name: str, height: float, top_speed: float):
+async def on_score_submit(
+    name: str, height: float, top_speed: float, total_flight_time: float = 0.0
+):
     rocket_payload = _flight_rocket_payload()
     if rocket_payload is None:
         message = "Rocket needs at least one part to submit"
@@ -156,11 +158,12 @@ async def on_score_submit(name: str, height: float, top_speed: float):
         pilot_id=selected_pilot,
         rocket=rocket_payload,
         top_speed=top_speed,
+        total_flight_time=total_flight_time,
     )
     print(
         f"Highscore API: ok={ok} name={name!r} height={height:.0f} "
-        f"top_speed={top_speed:.1f} pilot_id={selected_pilot} "
-        f"parts={len(rocket_payload['parts'])} ({message})"
+        f"top_speed={top_speed:.1f} total_flight_time={total_flight_time:.2f} "
+        f"pilot_id={selected_pilot} parts={len(rocket_payload['parts'])} ({message})"
     )
     return ok, message
 
@@ -521,14 +524,29 @@ rocket_debug_panel = RocketDebugPanel()
 
 
 def _pick_pilot_id():
+    """Uniform pick among common pilots; Pepe (id 4) is a 1% rare roll."""
     if not PILOT_CATALOG:
         raise RuntimeError("No pilots loaded")
-    if rng.randint(1, 100) > 99 and 4 in PILOT_CATALOG:
-        return 4
-    choices = [pid for pid in PILOT_CATALOG if pid != 4]
-    if choices:
-        return rng.choice(choices)
-    return next(iter(PILOT_CATALOG))
+
+    # Normalize keys so API string ids ("3") still match int 4 exclusion.
+    by_id = {}
+    for pid, pilot_def in PILOT_CATALOG.items():
+        try:
+            by_id[int(pid)] = pid
+        except (TypeError, ValueError):
+            by_id[pid] = pid
+
+    rare_id = 4
+    if rare_id in by_id and secrets.randbelow(100) == 0:
+        return by_id[rare_id]
+
+    common = sorted(
+        (pid for pid in by_id if pid != rare_id),
+        key=lambda pid: (isinstance(pid, str), pid),
+    )
+    if not common:
+        return next(iter(PILOT_CATALOG))
+    return by_id[common[secrets.randbelow(len(common))]]
 
 
 def apply_catalogs_to_game():
@@ -641,24 +659,12 @@ async def refresh_catalogs_for_menu():
 
 async def restart_game() -> bool:
     """Reload catalogs (API or local fallback), then return to a fresh build phase."""
-    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y
+    global phase, V, W, UP, camera_scroll_y, camera_scroll_x
+    global rocket_center_x, rocket_center_y
     global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
     global rocket_destroyed, pad_stuck_timer
 
-    if rng.randint(1, 100) > 99:
-        selected_pilot = 4
-    else:
-        selected_pilot = rng.randint(1,3)
-
-    pilot = Pilot(
-        name=pilots[selected_pilot].name,
-        attributes=PilotAttributes(**pilots[selected_pilot].attributes),
-        portrait_sprite=pilots[selected_pilot].avatar,
-        mission = missions[pilots[selected_pilot].mission],
-    )
-    sidebar.pilot = pilot
-    rocket.reset(pilot)
-    sidebar._load_portrait()
+    # load_catalogs -> apply_catalogs_to_game picks the pilot uniformly.
     ok, message = await load_catalogs()
     if not ok:
         print(f"Catalog reload failed on restart: {message}")

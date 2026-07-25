@@ -7,7 +7,7 @@ DEFAULT_PILOTS_PATH = Path("data/pilots.json")
 
 @dataclass(frozen=True)
 class PilotDef:
-    id: str
+    id: int | str
     name: str
     attributes: dict[str, str]
     avatar: str = ""
@@ -36,17 +36,26 @@ def _normalize_attributes(attributes: dict | None) -> dict:
     return normalized
 
 
+def _normalize_pilot_id(raw_id):
+    """Prefer int ids so catalog keys match local JSON and rarity checks."""
+    try:
+        return int(raw_id)
+    except (TypeError, ValueError):
+        return raw_id
+
+
 def parse_pilots(raw: dict) -> dict:
     catalog = {}
     for e in raw.get("pilots", []):
+        pilot_id = _normalize_pilot_id(e["id"])
         pilot = PilotDef(
-            id=e["id"],
+            id=pilot_id,
             name=e["name"],
             attributes=_normalize_attributes(e.get("attributes")),
             avatar=e.get("avatar", ""),
             mission=e.get("mission", 0),
         )
-        catalog[pilot.id] = pilot
+        catalog[pilot_id] = pilot
     return catalog
 
 

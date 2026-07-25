@@ -66,16 +66,19 @@ def sign_highscore(
     pilot_id: int | str,
     rocket: dict,
     top_speed: float | None = None,
+    total_flight_time: float | None = None,
 ) -> dict:
     parts = normalize_rocket_parts(rocket)
     timestamp = int(time.time())
     nonce = secrets.token_hex(16)
     top = "" if top_speed is None else format_number(top_speed)
+    flight = "" if total_flight_time is None else format_number(total_flight_time)
     pilot = str(pilot_id)
     canonical = (
         f"name={name}"
         f"&height={format_number(height)}"
         f"&top_speed={top}"
+        f"&total_flight_time={flight}"
         f"&pilot_id={pilot}"
         f"&parts={format_parts_canonical(parts)}"
         f"&timestamp={timestamp}"
@@ -98,6 +101,8 @@ def sign_highscore(
     }
     if top_speed is not None:
         payload["top_speed"] = top_speed
+    if total_flight_time is not None:
+        payload["total_flight_time"] = total_flight_time
     return payload
 
 
@@ -143,6 +148,7 @@ async def submit_highscore(
     pilot_id: int | str,
     rocket: dict,
     top_speed: float | None = None,
+    total_flight_time: float | None = None,
     secret: str | None = None,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> tuple[bool, str]:
@@ -162,6 +168,7 @@ async def submit_highscore(
             pilot_id=pilot_id,
             rocket=rocket,
             top_speed=top_speed,
+            total_flight_time=total_flight_time,
         )
     except ValueError as exc:
         return False, str(exc)
