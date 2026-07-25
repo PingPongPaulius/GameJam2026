@@ -16,6 +16,8 @@ class PartDef:
     fuel_consumption: float = 0.0
     sprite: str = ""
     gimbal: bool = False
+    cone: bool = False
+    drag_reduction_factor: float = 1.0
 
 def load_part_catalog(path="data/parts_new.json") -> dict[str, PartDef]:
     with open(path) as f:
@@ -34,6 +36,8 @@ def load_part_catalog(path="data/parts_new.json") -> dict[str, PartDef]:
             fuel_consumption=e.get("fuel_consumption", 0.0),
             sprite=e.get("sprite", ""),
             gimbal=e.get("gimbal", False),
+            cone=e.get("cone", False),
+            drag_reduction_factor=e.get("drag_reduction_factor", 1.0)
         )
         catalog[part.id] = part
     return catalog
