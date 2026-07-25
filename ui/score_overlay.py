@@ -1,3 +1,6 @@
+import asyncio
+import inspect
+
 import pygame
 
 from api.highscore_client import fetch_highscores
@@ -24,6 +27,7 @@ class ScoreOverlay:
         self.leaderboard_error = ""
         self._submitting = False
         self._submitted = False
+        self._loading_leaderboard = False
         self._cursor_visible = True
         self._cursor_timer = 0.0
         self._button_was_down = False
@@ -51,15 +55,24 @@ class ScoreOverlay:
         self.status_ok = None
         self._submitting = False
         self._submitted = False
+        self._loading_leaderboard = False
         self._cursor_visible = True
         self._cursor_timer = 0.0
         self._button_was_down = False
-        self._load_leaderboard()
+        self._schedule(self._load_leaderboard())
 
     def hide(self):
         self.visible = False
         self._submitting = False
         self._submitted = False
+        self._loading_leaderboard = False
+
+    @staticmethod
+    def _schedule(coro):
+        try:
+            asyncio.get_running_loop().create_task(coro)
+        except RuntimeError:
+            print(f"Could not schedule async task: {coro}")
 
     def handle_event(self, event) -> bool:
         """Consume overlay events. Returns True if the event was handled."""
@@ -284,7 +297,8 @@ class ScoreOverlay:
             return y + self.ROW_HEIGHT
 
         if not self.leaderboard:
-            empty = self._row_font.render("No scores yet — be the first!", True, (150, 165, 185))
+            label = "Loading..." if self._loading_leaderboard else "No scores yet — be the first!"
+            empty = self._row_font.render(label, True, (150, 165, 185))
             surface.blit(empty, (x, y))
             return y + self.ROW_HEIGHT
 
@@ -311,8 +325,11 @@ class ScoreOverlay:
 
         return y
 
-    def _load_leaderboard(self):
-        ok, result = fetch_highscores(limit=self.LEADERBOARD_LIMIT)
+    async def _load_leaderboard(self):
+        self._loading_leaderboard = True
+        self.leaderboard_error = ""
+        ok, result = await fetch_highscores(limit=self.LEADERBOARD_LIMIT)
+        self._loading_leaderboard = False
         if not ok:
             self.leaderboard = []
             self.leaderboard_error = "Could not load leaderboard"
@@ -354,14 +371,13 @@ class ScoreOverlay:
         self._submitting = True
         self.status = "Submitting..."
         self.status_ok = None
+        self._schedule(self._submit_async(name))
 
-        # Paint the submitting state before the blocking network call.
-        display = pygame.display.get_surface()
-        if display is not None:
-            self.draw(display)
-            pygame.display.flip()
-
+    async def _submit_async(self, name: str):
         result = self.on_submit(name, self.height, self.max_speed)
+        if inspect.isawaitable(result):
+            result = await result
+
         if isinstance(result, tuple) and len(result) == 2:
             ok, message = result
         elif result is False:
@@ -375,10 +391,7 @@ class ScoreOverlay:
         if ok:
             self._submitted = True
             self.status = "Updating leaderboard..."
-            if display is not None:
-                self.draw(display)
-                pygame.display.flip()
-            self._load_leaderboard()
+            await self._load_leaderboard()
             self.status = "Score submitted!"
 
     def _try_restart(self):

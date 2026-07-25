@@ -31,6 +31,9 @@ from manager.explosion_manager import ExplosionManager
 from rocket.behaviors import check_flight_failure
 from rocket.part_types import PartType
 
+from helpers.animation_asset_adapter import AnimationAssetAdapter
+from helpers.instance_wrapper import InstanceWrapper
+
 pygame.init()
 audio_manager = AudioManager()
 explosion_manager = ExplosionManager()
@@ -43,21 +46,6 @@ clock = pygame.time.Clock()
 FPS = 60
 dt = 1/FPS
 
-class InstanceWrapper:
-
-    def __init__(self, instance, pos):
-        self.x = pos[0]
-        self.y = pos[1]
-        self.instance = instance
-        self.vector = Vector(self.x, self.y)
-        # Offset from the rocket's center of mass, in the unrotated (rotation=0) build layout.
-        self.local_dx = 0.0
-        self.local_dy = 0.0
-
-    def get_pos(self):
-        return (self.x, self.y)
-
-
 phase = Phase.MENU
 
 tokens = []
@@ -66,23 +54,6 @@ camera_scroll_speed = 1
 half_camera_boundry = 200
 
 loader = Animation()
-exit_button = Button(0, 0, 100, 40, label="Exit")
-exit_button.active = True
-
-class AnimationAssetAdapter:
-    def __init__(self, sprite_dir="Sprites/parts/", default_size=(64, 64)):
-        self.sprite_dir = sprite_dir
-        self.default_size = default_size
-        self._cache = {}
-
-    def get_image(self, filename: str):
-        if filename not in self._cache:
-            path = f"{self.sprite_dir}{filename}"
-            image = pygame.image.load(path).convert_alpha()
-            if image.get_size() != self.default_size:
-                image = pygame.transform.smoothscale(image, self.default_size)
-            self._cache[filename] = image
-        return self._cache[filename]
 
 # Variables for the build area and the rocket
 slot_height = 64
@@ -151,8 +122,8 @@ _background_cache = {}
 _background_slices = []
 
 
-def on_score_submit(name: str, height: float, top_speed: float):
-    ok, message = submit_highscore(name, height, top_speed=top_speed)
+async def on_score_submit(name: str, height: float, top_speed: float):
+    ok, message = await submit_highscore(name, height, top_speed=top_speed)
     print(f"Highscore API: ok={ok} name={name!r} height={height:.0f} top_speed={top_speed:.1f} ({message})")
     return ok, message
 
@@ -644,10 +615,6 @@ async def frame():
                 screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
         explosion_manager.draw(screen)
         sidebar.draw(screen)
-
-    if exit_button.update() == "Pressed":
-        return False
-    exit_button.render(screen)
 
     if show_rocket_debug:
         if phase == Phase.BUILD or phase == Phase.FLIGHT:
