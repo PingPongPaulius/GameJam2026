@@ -211,7 +211,7 @@ def _trigger_explosion(failure):
 
 
 def update_flight(dt: float):
-    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase, stable
+    global V, UP, rocket_center_x, rocket_center_y, max_height, max_speed, phase 
     global score_submit_timer, score_submit_armed, rocket_destroyed
 
     # After an explosion, wait briefly so the VFX can play, then score.
@@ -336,11 +336,15 @@ def update_flight(dt: float):
     UP = rocket.y_velocity
 
     landed = previous_height > 1.0 and rocket.height <= 0.0
+    explode = True
+    for part in flight_parts:
+        if part.instance.part_def.part_type == PartType.FIN:
+            explode = False
     failure = check_flight_failure(
         rocket,
         landed=landed,
         impact_speed=impact_speed,
-        force_failure=not stable,
+        force_failure=explode,
     )
     if failure:
         _trigger_explosion(failure)
@@ -400,14 +404,11 @@ def start_flight():
     rocket.rotation = 0.0
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = rocket.total_fuel_capacity
-    stable = False
     for instance in build_scene.rocket.parts:
         instance.gimbal_angle = 0.0
         pos = build_scene.build_area.slot_screen_pos(instance.slot_index, instance.offset_x)
         flight_parts.append(InstanceWrapper(instance, pos))
         W += instance.part_def.weight
-        if (instance.part_def.part_type == PartType.FIN):
-            stable = True
     
 
     total_weight = sum(instance.instance.part_def.weight for instance in flight_parts)
@@ -425,7 +426,7 @@ def start_flight():
     for instance in flight_parts:
         instance.local_dx = instance.x - pivot_x
         instance.local_dy = instance.y - pivot_y
-
+    rocket.apply_pilot_effects()
 
 build_scene = BuildScene(
     rocket=rocket,
@@ -437,11 +438,10 @@ build_scene = BuildScene(
 )
 rocket_debug_panel = RocketDebugPanel()
 
-stable = False
 
 def restart_game():
     """Return to a fresh build phase after submitting a score."""
-    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y, stable
+    global phase, V, W, UP, camera_scroll_y, rocket_center_x, rocket_center_y 
     global max_height, max_speed, score_submit_timer, score_submit_armed, rocket_destroyed
 
     rocket.reset()
@@ -461,7 +461,6 @@ def restart_game():
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
-    stable = False
 
 
 score_overlay.on_restart = restart_game

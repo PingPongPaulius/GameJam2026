@@ -235,6 +235,14 @@ class Rocket:
     def is_launch_ready(self) -> bool:
         return len(self.validate()) == 0
     
+    def apply_pilot_modifiers(self):
+        pass
+    
+
+    def apply_pilot_effects(self):
+        if self.pilot.mission():
+            print("Apply")
+            self.apply_pilot_modifiers()
 
     def render(self, surface, assets, pos):
         for instance in self.parts:
