@@ -92,3 +92,42 @@ class OptionsScene:
     def go_back(self):
         if self.on_phase_change:
             self.on_phase_change(Phase.MENU)
+
+class CreditsScene(OptionsScene):
+
+    def __init__(self, screen, audio, on_phase_change=None):
+        super().__init__(screen, audio, on_phase_change)
+        self.DEVS = sorted(["KOT", "DopiePanda", "MR.T", "Garcherblu", "P1ngP0ng"])
+        slider_width = 360
+        slider_height = 24
+        start_y = 300
+        spacing = 50
+        self.devs = {}
+        for index, channel in enumerate(self.DEVS):
+            rect = pygame.Rect(0, 0, slider_width, slider_height)
+            rect.center = (self.center_x + 280, start_y + index * spacing)
+            self.devs[channel] = rect
+
+    def draw(self, screen):
+        image_width = self.background.get_width()
+        image_height = self.background.get_height()
+        for x in range(0, self.screen_width, image_width):
+            for y in range(0, self.screen_height, image_height):
+                screen.blit(self.background, (x, y))
+
+        title = self._title_font.render("CREDITS", True, COLORS["yellow"])
+        title_rect = title.get_rect(center=(self.center_x, 200))
+        screen.blit(title, title_rect)
+        counter = 0
+        for channel, rect in self.devs.items():
+            print(self.DEVS, counter)
+            label = self._label_font.render(channel, True, COLORS["white"])
+            label_rect = label.get_rect()
+            label_rect.midright = (rect.left - 24, rect.centery)
+            screen.blit(label, label_rect)
+            counter += 1
+            if counter >= len(self.DEVS):
+                break
+
+
+        self.back_button.render(screen)

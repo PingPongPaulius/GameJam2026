@@ -34,7 +34,7 @@ from ui.score_overlay import ScoreOverlay
 from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
 from scenes.main_menu_scene import MainMenuScene
-from scenes.options_scene import OptionsScene
+from scenes.options_scene import OptionsScene, CreditsScene
 from rendering.rocket_renderer import draw_rocket
 from rendering.engine_flame import EngineFlameAnimator
 from vector import Vector
@@ -534,6 +534,11 @@ options_scene = OptionsScene(
     audio=audio_manager,
     on_phase_change=set_phase,
 )
+credits_scene = CreditsScene(
+    screen,
+    audio=audio_manager,
+    on_phase_change=set_phase,
+)
 rocket_debug_panel = RocketDebugPanel()
 
 
@@ -909,6 +914,9 @@ async def frame():
     elif phase == Phase.OPTIONS:
         options_scene.update(dt)
         options_scene.draw(screen)
+    elif phase == Phase.CREDITS:
+        credits_scene.update(dt)
+        credits_scene.draw(screen)
     if phase == Phase.BUILD and build_scene is not None:
         handle_background()
         build_scene.update(dt)
