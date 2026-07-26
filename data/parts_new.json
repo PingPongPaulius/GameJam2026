@@ -104,7 +104,7 @@
       "part_type": "FUEL_TANK",
       "weight": 1.2,
       "drag": 0.1,
-      "sprite": "Engine_Heavy.png",
+      "sprite": "Battery_Cell.png",
       "fuel_capacity": 14,
       "heat_dissipation": 3.5
     },
