@@ -43,7 +43,7 @@ class PaletteSection:
 class PartPalette:
     TOP_LEFT = (20, 60)
     ITEM_SIZE = (64, 64)
-    PARTS_PER_ROW = 3
+    PARTS_PER_ROW = 5
     PADDING = 10
     BACKGROUND_PADDING = 12
     SECTION_HEADER_HEIGHT = 24
@@ -120,16 +120,44 @@ class PartPalette:
             return None
         return [pygame.transform.smoothscale(frame, size) for frame in frames]
 
+    def _max_columns_for_width(self, width, item_w, padding):
+        return max(1, (width + padding) // (item_w + padding))
+
     def _fit_layout(self, part_defs, content_rect, item_size, padding, parts_per_row):
         grouped = self._group_part_defs(part_defs)
-        for size in (64, 56, 48, 40):
-            for columns in (3, 2, 1):
+        preferred = max(1, parts_per_row)
+        sizes = (64, 56, 48, 40, 32)
+
+        # 1) Keep requested columns; shrink icons to fit height.
+        for size in sizes:
+            if self._layout_fits(grouped, content_rect, (size, size), padding, preferred):
+                return (size, size), padding, preferred
+
+        # 2) Width too tight for preferred columns — reduce columns.
+        for columns in range(preferred - 1, 0, -1):
+            for size in sizes:
                 if self._layout_fits(grouped, content_rect, (size, size), padding, columns):
                     return (size, size), padding, columns
-        return item_size, padding, 1
+
+        # 3) Height too tight (extra sections) — pack MORE columns to shorten the list.
+        max_columns = self._max_columns_for_width(content_rect.width, sizes[-1], padding)
+        for columns in range(preferred + 1, max_columns + 1):
+            for size in sizes:
+                if self._layout_fits(grouped, content_rect, (size, size), padding, columns):
+                    return (size, size), padding, columns
+
+        # 4) Last resort: smallest icons, as many columns as width allows.
+        # Never force 1 column — that makes overflow worse when height is the limit.
+        size = sizes[-1]
+        columns = self._max_columns_for_width(content_rect.width, size, padding)
+        return (size, size), padding, columns
 
     def _layout_fits(self, grouped, content_rect, item_size, padding, parts_per_row):
-        _, h = item_size
+        w, h = item_size
+        grid_width = parts_per_row * w + (parts_per_row - 1) * padding
+        if grid_width > content_rect.width:
+            return False
+
         y = content_rect.y
         for _, defs in grouped:
             y += self.SECTION_HEADER_HEIGHT + padding // 2

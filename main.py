@@ -29,6 +29,7 @@ from rocket.pilot_data import (
 from rocket.rocket import Rocket
 from rocket.build_area import BuildArea
 from api.catalog_client import fetch_parts, fetch_pilots
+from api.flights_client import increment_flight_count
 from api.highscore_client import submit_highscore
 from ui.build_sidebar import BuildSidebar
 from ui.rocket_debug_panel import RocketDebugPanel
@@ -101,7 +102,8 @@ _locked = False
 show_rocket_debug = True
 enable_snap_draws = False
 
-# Visuals
+# Visuals (Things that fly in the sky during rocket launch)
+visuals_enabled = False
 visuals = FlightVisuals(0, SCREEN_WIDTH, SCREEN_HEIGHT)
 visuals.sprite_images = {
     "bird_small": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
@@ -277,6 +279,15 @@ def _show_score_overlay():
             "pad_stuck" if max_height <= 1.0 else "altitude"
         )
     score_overlay.show(max_height, max_speed, flight_time, failure_reason=reason)
+    asyncio.create_task(_report_flight_finished())
+
+
+async def _report_flight_finished():
+    ok, result = await increment_flight_count()
+    if ok:
+        print(f"Flights API: ok=True count={result}")
+    else:
+        print(f"Flights API: ok=False ({result})")
 
 
 def _halt_rocket_flight():
@@ -1089,7 +1100,7 @@ async def frame():
             update_background_scroll(dt, rocket.height)
         handle_background(_background_scroll_y, camera_scroll_x)
 
-        if phase == Phase.FLIGHT:
+        if phase == Phase.FLIGHT and visuals_enabled == True:
             _trigger_visuals(dt, screen, rocket.height)
 
         if rocket_breakapart:

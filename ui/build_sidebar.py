@@ -50,7 +50,7 @@ class BuildSidebar:
             content_rect=parts_content,
             cover_rect=_scale_region(COVER_REGION, scale),
             draw_background=False,
-            parts_per_row=3,
+            parts_per_row=5,
         )
 
         self._load_portrait()
