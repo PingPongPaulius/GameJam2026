@@ -9,7 +9,7 @@ class MainMenuScene:
         self.on_phase_change = on_phase_change
         self.can_start = can_start
         self.status_text = "Loading parts & pilots..."
-        self.game_title = "60 seconds to launch"
+        self.game_title = "20 seconds to launch"
         self.game_title_font= "Starjedi"
         self.game_title_font_size = 60
         background_file = "Background_Slice_6.png"
@@ -94,7 +94,7 @@ class MainMenuScene:
             return
         print("Starting game!")
         if self.on_phase_change:
-            self.on_phase_change(Phase.BUILD)
+            self.on_phase_change(Phase.INTRO)
 
     def open_story(self):
         if self.on_phase_change:

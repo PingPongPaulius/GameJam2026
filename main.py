@@ -87,6 +87,8 @@ BACKGROUND_SLICE_STARTS = (
 )
 # How quickly the drawn background eases toward the height target (1/s).
 BACKGROUND_SCROLL_FOLLOW = 1.25
+# Menu → build intro: scroll from space (slice 6) down to the first slice.
+INTRO_SCROLL_DURATION = 3.5
 
 engine_flames = EngineFlameAnimator()
 
@@ -161,6 +163,8 @@ DEBRIS_DRAG = 0.4
 _background_cache = {}
 _background_slices = []
 _background_scroll_y = 0.0
+_build_intro_elapsed = 0.0
+_build_intro_start_scroll = 0.0
 
 
 def _flight_rocket_payload() -> dict | None:
@@ -203,12 +207,17 @@ async def on_score_submit(
 
 
 def set_phase(new_phase):
-    global phase
+    global phase, _build_intro_elapsed, _build_intro_start_scroll, _background_scroll_y
     previous = phase
     phase = new_phase
 
     if new_phase == Phase.CREDITS:
         credits_scene.reset()
+
+    if new_phase == Phase.INTRO:
+        _build_intro_start_scroll = _space_background_scroll()
+        _background_scroll_y = _build_intro_start_scroll
+        _build_intro_elapsed = 0.0
 
     menu_like = (Phase.MENU, Phase.OPTIONS)
     if new_phase in menu_like:
@@ -912,6 +921,33 @@ def _reset_background_scroll():
     _background_scroll_y = 0.0
 
 
+def _space_background_scroll() -> float:
+    """Scroll offset that shows the top authored slice (space / menu look)."""
+    if not _background_slices:
+        return 0.0
+    slice_height = float(_background_slices[0].get_height())
+    return max(0.0, (len(_background_slices) - 1) * slice_height)
+
+
+def update_build_intro(dt: float):
+    """Scroll from space down to the first slice, then enter BUILD."""
+    global _build_intro_elapsed, _background_scroll_y
+
+    if _build_intro_start_scroll <= 0.0:
+        _background_scroll_y = 0.0
+        set_phase(Phase.BUILD)
+        return
+
+    _build_intro_elapsed += max(0.0, dt)
+    t = min(1.0, _build_intro_elapsed / INTRO_SCROLL_DURATION)
+    # Smoothstep ease-in-out for a cinematic descend.
+    eased = t * t * (3.0 - 2.0 * t)
+    _background_scroll_y = _build_intro_start_scroll * (1.0 - eased)
+    if t >= 1.0:
+        _background_scroll_y = 0.0
+        set_phase(Phase.BUILD)
+
+
 def _slice_start_altitudes(slice_count: int) -> list[float]:
     starts = [float(value) for value in BACKGROUND_SLICE_STARTS[:slice_count]]
     while len(starts) < slice_count:
@@ -1139,8 +1175,11 @@ async def frame():
     elif phase == Phase.STORY:
         story_scene.update(dt)
         story_scene.draw(screen)
-    if phase == Phase.BUILD and build_scene is not None:
-        handle_background()
+    elif phase == Phase.INTRO:
+        update_build_intro(dt)
+        handle_background(_background_scroll_y)
+    elif phase == Phase.BUILD and build_scene is not None:
+        handle_background(_background_scroll_y)
         build_scene.update(dt)
         build_scene.draw(screen)
 
