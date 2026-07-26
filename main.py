@@ -37,7 +37,7 @@ from ui.score_overlay import ScoreOverlay
 from ui.slide_cover import SlideCover
 from scenes.build_scene import BuildScene, SIDE_MOUNT_TYPES
 from scenes.main_menu_scene import MainMenuScene
-from scenes.options_scene import OptionsScene, CreditsScene, PilotsScene
+from scenes.options_scene import OptionsScene, CreditsScene, PilotsScene, StoryScene
 from rendering.rocket_renderer import draw_rocket
 from rendering.engine_flame import EngineFlameAnimator
 from rendering.flight_visuals import FlightVisuals
@@ -204,6 +204,9 @@ def set_phase(new_phase):
     global phase
     previous = phase
     phase = new_phase
+
+    if new_phase == Phase.CREDITS:
+        credits_scene.reset()
 
     menu_like = (Phase.MENU, Phase.OPTIONS)
     if new_phase in menu_like:
@@ -651,6 +654,11 @@ pilots_scene = PilotsScene(
     audio=audio_manager,
     on_phase_change=set_phase,
 )
+story_scene = StoryScene(
+    screen,
+    audio=audio_manager,
+    on_phase_change=set_phase,
+)
 rocket_debug_panel = RocketDebugPanel()
 
 
@@ -1066,7 +1074,7 @@ async def frame():
         if event.type == pygame.QUIT:
             return False
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-            if phase == Phase.OPTIONS:
+            if phase in (Phase.OPTIONS, Phase.CREDITS, Phase.PILOTS, Phase.STORY):
                 set_phase(Phase.MENU)
                 continue
             if phase != Phase.MENU:
@@ -1097,6 +1105,9 @@ async def frame():
     elif phase == Phase.PILOTS:
         pilots_scene.update(dt)
         pilots_scene.draw(screen)
+    elif phase == Phase.STORY:
+        story_scene.update(dt)
+        story_scene.draw(screen)
     if phase == Phase.BUILD and build_scene is not None:
         handle_background()
         build_scene.update(dt)

@@ -27,6 +27,7 @@ class MainMenuScene:
         self.buttons = self._create_menu_buttons(
             [
                 ("Start game", self.start_game),
+                ("Story", self.open_story),
                 ("Options", self.open_options),
                 ("Credits", self.show_credits),
                 ("Missions", self.show_pilots),
@@ -82,6 +83,10 @@ class MainMenuScene:
         print("Starting game!")
         if self.on_phase_change:
             self.on_phase_change(Phase.BUILD)
+
+    def open_story(self):
+        if self.on_phase_change:
+            self.on_phase_change(Phase.STORY)
 
     def open_options(self):
         if self.on_phase_change:

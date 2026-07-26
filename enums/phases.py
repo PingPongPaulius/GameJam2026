@@ -8,3 +8,4 @@ class Phase(Enum):
     RESULTS = auto()
     CREDITS = auto()
     PILOTS = auto()
+    STORY = auto()
