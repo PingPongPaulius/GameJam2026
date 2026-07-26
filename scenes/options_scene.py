@@ -68,7 +68,7 @@ class OptionsScene:
             for y in range(0, self.screen_height, image_height):
                 screen.blit(self.background, (x, y))
 
-        title = self._title_font.render("Options", True, COLORS["yellow"])
+        title = self._title_font.render("options", True, COLORS["yellow"])
         title_rect = title.get_rect(center=(self.center_x, 200))
         screen.blit(title, title_rect)
 
@@ -115,7 +115,7 @@ class CreditsScene(OptionsScene):
             for y in range(0, self.screen_height, image_height):
                 screen.blit(self.background, (x, y))
 
-        title = self._title_font.render("CREDITS", True, COLORS["yellow"])
+        title = self._title_font.render("credits", True, COLORS["yellow"])
         title_rect = title.get_rect(center=(self.center_x, 200))
         screen.blit(title, title_rect)
         counter = 0
@@ -136,6 +136,7 @@ class PilotsScene(OptionsScene):
     def __init__(self, screen, audio, on_phase_change=None):
         super().__init__(screen, audio, on_phase_change)
         self.DEVS = ["To get pilot bonuses you have to complete secret missions:",
+                     "",
                      "Human: build a ship of at least 5 different parts",
                      "Alien: Build the rocket in 10 seconds",
                      "Robot: Have a battery"]
@@ -156,7 +157,7 @@ class PilotsScene(OptionsScene):
             for y in range(0, self.screen_height, image_height):
                 screen.blit(self.background, (x, y))
 
-        title = self._title_font.render("SECRET MISSIONS", True, COLORS["yellow"])
+        title = self._title_font.render("secret missions", True, COLORS["yellow"])
         title_rect = title.get_rect(center=(self.center_x, 200))
         screen.blit(title, title_rect)
         counter = 0

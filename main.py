@@ -2,6 +2,7 @@ import math
 import glob
 import re
 import secrets
+import random
 from typing import Optional
 from enums.phases import Phase
 
@@ -37,6 +38,7 @@ from scenes.main_menu_scene import MainMenuScene
 from scenes.options_scene import OptionsScene, CreditsScene, PilotsScene
 from rendering.rocket_renderer import draw_rocket
 from rendering.engine_flame import EngineFlameAnimator
+from rendering.flight_visuals import FlightVisuals
 from vector import Vector
 from manager.audio_manager import AudioManager
 from manager.explosion_manager import ExplosionManager
@@ -93,6 +95,23 @@ _locked = False
 # Debug options
 show_rocket_debug = True
 enable_snap_draws = False
+
+# Visuals
+visuals = FlightVisuals(0, SCREEN_WIDTH, SCREEN_HEIGHT)
+visuals.sprite_images = {
+    "bird_small": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "bird_medium": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "kite": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "cloud_wisp": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "small_plane": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "airliner": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "contrail": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "balloon": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "glider": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "satellite_glint": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "high_cloud": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+}
+
 
 assets = AnimationAssetAdapter()
 missions = {0: default_mission, 1: mission_alien, 2: mission_human, 3: mission_robot}
@@ -261,6 +280,11 @@ def _trigger_explosion(failure):
         explosion_manager.spawn(rocket_center_x, rocket_center_y, failure.severity)
         audio_manager.play("explosion")
     print(f"Rocket destroyed: {failure.kind} (severity={failure.severity:.2f})")
+
+def _trigger_visuals(dt, screen, height):
+    visuals.height = height
+    visuals.update(dt)
+    visuals.draw(screen)
 
 
 def update_flight(dt: float):
@@ -892,6 +916,8 @@ def handle_camera():
         for token in tokens:
             token.hitbox.x += (player.speed - camera_scroll_speed)
 
+SPAWN_EVENT = pygame.USEREVENT + 1
+pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
 
 async def frame():
     global dt, phase
@@ -905,6 +931,11 @@ async def frame():
             if phase != Phase.MENU:
                 return_to_menu()
                 continue
+        elif event.type == SPAWN_EVENT:
+            if phase == Phase.FLIGHT:
+                visuals._instantiate_new_visual()
+            pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
+
         if score_overlay.visible and score_overlay.handle_event(event):
             continue
         if phase == Phase.OPTIONS and options_scene.handle_event(event):
@@ -941,6 +972,10 @@ async def frame():
         elif rocket is not None:
             update_background_scroll(dt, rocket.height)
         handle_background(_background_scroll_y, camera_scroll_x)
+
+        if phase == Phase.FLIGHT:
+            _trigger_visuals(dt, screen, rocket.height)
+
         if not rocket_destroyed:
             thrusting = (
                 phase == Phase.FLIGHT
