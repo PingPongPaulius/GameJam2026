@@ -131,19 +131,21 @@ class CreditsScene(OptionsScene):
     SCROLL_SPEED = 55
 
     def __init__(self, screen, audio, on_phase_change=None):
-        super().__init__(screen, audio, on_phase_change)
         self._header_font = pygame.font.Font("fonts/Starjedi.ttf", 80)
         self._name_font = pygame.font.Font("fonts/Starjedi.ttf", 44)
+        # Start slightly before the first line so credits rise from the bottom.
+        self.scroll = -40.0
+        super().__init__(screen, audio, on_phase_change)
+
+    def reset(self):
+        self.scroll = -40.0
+
+    def _build_layout(self):
+        super()._build_layout()
         self.credits_surface = self._build_credits_surface()
         self._overlay = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
         self._overlay.fill((0, 0, 0, 120))
-        self.scroll = 0.0
         self.back_button.hitbox.center = (self.center_x, self.screen_height - 40)
-        self.reset()
-
-    def reset(self):
-        # Start slightly before the first line so credits rise from the bottom.
-        self.scroll = -40.0
 
     def _build_credits_surface(self):
         lines = []
@@ -251,11 +253,13 @@ class PilotsScene(OptionsScene):
     ]
 
     def __init__(self, screen, audio, on_phase_change=None):
-        super().__init__(screen, audio, on_phase_change)
         self._subtitle_font = pygame.font.SysFont(None, 32)
         self._mission_font = pygame.font.SysFont(None, 30)
-        assets = AssetManager()
+        self._assets = AssetManager()
+        super().__init__(screen, audio, on_phase_change)
 
+    def _build_layout(self):
+        super()._build_layout()
         box_width = min(780, self.screen_width - 120)
         box_height = 88
         box_gap = 18
@@ -266,7 +270,7 @@ class PilotsScene(OptionsScene):
         self.mission_boxes = []
         for index, (avatar, text) in enumerate(self.MISSIONS):
             rect = pygame.Rect(left, start_y + index * (box_height + box_gap), box_width, box_height)
-            portrait = assets.get_pilot_image(avatar)
+            portrait = self._assets.get_pilot_image(avatar)
             scale = min(portrait_size / portrait.get_width(), portrait_size / portrait.get_height())
             size = (max(1, int(portrait.get_width() * scale)), max(1, int(portrait.get_height() * scale)))
             portrait = pygame.transform.smoothscale(portrait, size)
@@ -314,22 +318,26 @@ class PilotsScene(OptionsScene):
 class StoryScene(OptionsScene):
 
     def __init__(self, screen, audio, on_phase_change=None):
-        super().__init__(screen, audio, on_phase_change)
         manager = AssetManager()
-        comic = manager.get_background("Story_Comic.png")
+        self._comic = manager.get_background("Story_Comic.png")
+        super().__init__(screen, audio, on_phase_change)
 
+    def _build_layout(self):
+        super()._build_layout()
         # Leave room below the comic for the back button.
         max_width = self.screen_width - 40
         max_height = self.screen_height - 100
-        scale = min(max_width / comic.get_width(), max_height / comic.get_height(), 1.0)
-        size = (int(comic.get_width() * scale), int(comic.get_height() * scale))
-        self.story_image = pygame.transform.smoothscale(comic, size)
+        scale = min(max_width / self._comic.get_width(), max_height / self._comic.get_height(), 1.0)
+        size = (int(self._comic.get_width() * scale), int(self._comic.get_height() * scale))
+        self.story_image = pygame.transform.smoothscale(self._comic, size)
         self.story_rect = self.story_image.get_rect(
             center=(self.center_x, (self.screen_height - 60) / 2)
         )
         self.back_button.hitbox.center = (self.center_x, self.story_rect.bottom + 30)
 
     def draw(self, screen):
+        self._sync_layout(screen)
+
         image_width = self.background.get_width()
         image_height = self.background.get_height()
         for x in range(0, self.screen_width, image_width):
