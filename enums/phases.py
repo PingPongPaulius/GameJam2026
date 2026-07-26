@@ -7,3 +7,4 @@ class Phase(Enum):
     FLIGHT = auto()
     RESULTS = auto()
     CREDITS = auto()
+    PILOTS = auto()

@@ -29,6 +29,7 @@ class MainMenuScene:
                 ("Start game", self.start_game),
                 ("Options", self.open_options),
                 ("Credits", self.show_credits),
+                ("Missions", self.show_pilots),
                 ("Quit", self.quit_game),
             ],
             self.center_x, button_y_start, button_spacing, padding=button_padding,
@@ -89,6 +90,10 @@ class MainMenuScene:
     def show_credits(self):
         if self.on_phase_change:
             self.on_phase_change(Phase.CREDITS)
+    
+    def show_pilots(self):
+        if self.on_phase_change:
+            self.on_phase_change(Phase.PILOTS)
 
     def quit_game(self):
         pygame.quit()
