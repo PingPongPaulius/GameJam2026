@@ -9,6 +9,8 @@ WIND_VOLUME = 0.7
 # No wind audio above this altitude (atmosphere thins out).
 WIND_MAX_HEIGHT = 7000.0
 EXPLOSION_VOLUME = 0.85
+# Peak siren level at the end of the menu→build intro scroll.
+SIREN_VOLUME = 0.85
 MILESTONE_HEIGHT = 100_000.0
 
 # Pygbag / python-wasm needs OGG; desktop keeps MP3.
@@ -41,6 +43,7 @@ class AudioManager:
             "wind": pygame.mixer.Sound(_audio_path("wind")),
             "explosion": pygame.mixer.Sound(_audio_path("explosion")),
             "metal_shutter": pygame.mixer.Sound(_audio_path("metal-shutter")),
+            "siren": pygame.mixer.Sound(_audio_path("siren")),
         }
 
         # Per-sound base levels for one-shots (scaled by the SFX slider).
@@ -51,14 +54,17 @@ class AudioManager:
         self._sounds["explosion"].set_volume(EXPLOSION_VOLUME)
 
         # Loops on 0/1; one-shots on 2 so engine/wind fadeouts never cut them off.
+        # Intro siren on 3 so it can ramp independently during the scroll.
         self._channels = {
             "engine": pygame.mixer.Channel(0),
             "wind": pygame.mixer.Channel(1),
             "sfx": pygame.mixer.Channel(2),
+            "siren": pygame.mixer.Channel(3),
         }
         self._prev = {}
         self._music_mode = None  # None | "menu" | "milestone"
         self._milestone_played = False
+        self._siren_progress = 0.0
         self._soundtrack_path = _audio_path("soundtrack")
 
     def get_volume(self, name: str) -> float:
@@ -100,6 +106,32 @@ class AudioManager:
         else:
             pygame.mixer.music.stop()
         self._music_mode = None
+
+    def start_intro_siren(self):
+        """Begin looping the siren silently; volume is driven by scroll progress."""
+        self._siren_progress = 0.0
+        ch = self._channels["siren"]
+        if not ch.get_busy():
+            ch.play(self._sounds["siren"], loops=-1)
+        ch.set_volume(0.0)
+
+    def update_intro_siren(self, progress: float):
+        """Set siren loudness from intro scroll progress (0 = space, 1 = ground)."""
+        self._siren_progress = max(0.0, min(1.0, progress))
+        ch = self._channels["siren"]
+        if not ch.get_busy():
+            ch.play(self._sounds["siren"], loops=-1)
+        ch.set_volume(self._siren_progress * SIREN_VOLUME * self._volumes["sfx"])
+
+    def stop_intro_siren(self, fade_ms: int = 250):
+        self._siren_progress = 0.0
+        ch = self._channels["siren"]
+        if not ch.get_busy():
+            return
+        if fade_ms > 0:
+            ch.fadeout(fade_ms)
+        else:
+            ch.stop()
 
     def on_flight_start(self):
         """Reset milestone flag and stop menu music for a new flight."""
@@ -147,6 +179,12 @@ class AudioManager:
         engine_ch = self._channels["engine"]
         if engine_ch.get_busy():
             engine_ch.set_volume(self._volumes["engine"])
+
+        siren_ch = self._channels["siren"]
+        if siren_ch.get_busy():
+            siren_ch.set_volume(
+                self._siren_progress * SIREN_VOLUME * self._volumes["sfx"]
+            )
 
         for name, base in self._sfx_base_volumes.items():
             snd = self._sounds.get(name)

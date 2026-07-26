@@ -107,20 +107,16 @@ show_rocket_debug = True
 enable_snap_draws = False
 
 # Visuals (Things that fly in the sky during rocket launch)
-visuals_enabled = False
+visuals_enabled = True
 visuals = FlightVisuals(0, SCREEN_WIDTH, SCREEN_HEIGHT)
 visuals.sprite_images = {
-    "bird_small": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "bird_medium": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "kite": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "cloud_wisp": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "small_plane": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "airliner": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "contrail": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "balloon": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "glider": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "satellite_glint": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
-    "high_cloud": pygame.image.load("Sprites/placeholder.png").convert_alpha(),
+    "birds": pygame.image.load("Sprites/Background Clutter/Clutter_Birds.png").convert_alpha(),
+    "meteor": pygame.image.load("Sprites/Background Clutter/Clutter_Meteor.png").convert_alpha(),
+    "satellite": pygame.image.load("Sprites/Background Clutter/Clutter_Satellite.png").convert_alpha(),
+    "ufo": pygame.image.load("Sprites/Background Clutter/Clutter_UFO.png").convert_alpha(),
+    "planet_1": pygame.image.load("Sprites/Background Clutter/Clutter_Planet1.png").convert_alpha(),
+    "planet_2": pygame.image.load("Sprites/Background Clutter/Clutter_Planet2.png").convert_alpha(),
+    "planet_3": pygame.image.load("Sprites/Background Clutter/Clutter_Planet3.png").convert_alpha(),
 }
 
 
@@ -218,6 +214,9 @@ def set_phase(new_phase):
         _build_intro_start_scroll = _space_background_scroll()
         _background_scroll_y = _build_intro_start_scroll
         _build_intro_elapsed = 0.0
+        audio_manager.start_intro_siren()
+    elif previous == Phase.INTRO:
+        audio_manager.stop_intro_siren()
 
     menu_like = (Phase.MENU, Phase.OPTIONS)
     if new_phase in menu_like:
@@ -943,6 +942,8 @@ def update_build_intro(dt: float):
     # Smoothstep ease-in-out for a cinematic descend.
     eased = t * t * (3.0 - 2.0 * t)
     _background_scroll_y = _build_intro_start_scroll * (1.0 - eased)
+    # Siren rises with the camera descent (quiet in space → loud at pad).
+    audio_manager.update_intro_siren(eased)
     if t >= 1.0:
         _background_scroll_y = 0.0
         set_phase(Phase.BUILD)
