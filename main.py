@@ -540,7 +540,7 @@ def update_flight(dt: float):
         _trigger_explosion(failure)
         return
 
-    # Soft touchdown — no boom, go straight to score.
+    # Soft touchdown, no boom, go straight to score.
     if landed:
         rocket.y_velocity = 0.0
         rocket.x_velocity = 0.0
@@ -548,7 +548,7 @@ def update_flight(dt: float):
         _show_score_overlay()
         return
 
-    # Stuck on the pad with (near) zero speed — open highscore after a short wait.
+    # Stuck on the pad with (near) zero speed. open highscore after a short wait.
     if rocket.height <= 0 and rocket.velocity < PAD_STUCK_SPEED_EPS:
         pad_stuck_timer += dt
         if pad_stuck_timer >= PAD_STUCK_TIMEOUT:
