@@ -28,10 +28,18 @@ class OptionsScene:
         self._value_font = pygame.font.SysFont(None, 28)
 
         self.sliders = {}
+        self.back_button = None
+        self._build_layout()
+
+    def _build_layout(self):
+        """(Re)build every rect that depends on self.center_x. Called on init
+        and whenever the window is resized, so subclasses should override
+        this (calling super()._build_layout() first) rather than draw()."""
         slider_width = 360
         slider_height = 24
         start_y = 320
         spacing = 70
+        self.sliders = {}
         for index, channel in enumerate(VOLUME_CHANNELS):
             rect = pygame.Rect(0, 0, slider_width, slider_height)
             rect.center = (self.center_x + 40, start_y + index * spacing)
@@ -42,15 +50,27 @@ class OptionsScene:
                 fill_color=COLORS["yellow"],
             )
 
-        self.back_button = Button(
-            center=(self.center_x, start_y + len(VOLUME_CHANNELS) * spacing + 40),
-            label="Back",
-            on_click=self.go_back,
-            padding=(20, 10),
-            bg_color=COLORS["black"],
-            text_color=COLORS["white"],
-        )
-        self.back_button.active = True
+        back_center = (self.center_x, start_y + len(VOLUME_CHANNELS) * spacing + 40)
+        if self.back_button is None:
+            self.back_button = Button(
+                center=back_center,
+                label="Back",
+                on_click=self.go_back,
+                padding=(20, 10),
+                bg_color=COLORS["black"],
+                text_color=COLORS["white"],
+            )
+            self.back_button.active = True
+        else:
+            self.back_button.hitbox.center = back_center
+
+    def _sync_layout(self, screen):
+        width, height = screen.get_size()
+        if (width, height) == (self.screen_width, self.screen_height):
+            return
+        self.screen_width, self.screen_height = width, height
+        self.center_x = width / 2
+        self._build_layout()
 
     def handle_event(self, event) -> bool:
         for slider in self.sliders.values():
@@ -62,6 +82,8 @@ class OptionsScene:
         self.back_button.update()
 
     def draw(self, screen):
+        self._sync_layout(screen)
+
         image_width = self.background.get_width()
         image_height = self.background.get_height()
         for x in range(0, self.screen_width, image_width):
@@ -92,6 +114,7 @@ class OptionsScene:
     def go_back(self):
         if self.on_phase_change:
             self.on_phase_change(Phase.MENU)
+
 
 class CreditsScene(OptionsScene):
     SECTIONS = [
@@ -200,6 +223,8 @@ class CreditsScene(OptionsScene):
             screen.blit(scaled, ((w - scaled_w) // 2, screen_y))
 
     def draw(self, screen):
+        self._sync_layout(screen)
+
         image_width = self.background.get_width()
         image_height = self.background.get_height()
         for x in range(0, self.screen_width, image_width):
@@ -215,6 +240,7 @@ class CreditsScene(OptionsScene):
 
         self._draw_crawl(screen)
         self.back_button.render(screen)
+
 
 class PilotsScene(OptionsScene):
     SUBTITLE = "To get pilot bonuses you have to complete secret missions:"
@@ -250,6 +276,8 @@ class PilotsScene(OptionsScene):
         self.back_button.hitbox.center = (self.center_x, last_bottom + 50)
 
     def draw(self, screen):
+        self._sync_layout(screen)
+
         image_width = self.background.get_width()
         image_height = self.background.get_height()
         for x in range(0, self.screen_width, image_width):

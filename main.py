@@ -57,7 +57,9 @@ SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 1000
 BG_COLOR = (20, 20, 20)
 
-screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+flags = pygame.RESIZABLE
+
+screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
 clock = pygame.time.Clock()
 FPS = 60
 # Cap frame delta so a background tab waking up (or a hitch) can't jump physics
@@ -709,10 +711,7 @@ def apply_catalogs_to_game():
         SCREEN_HEIGHT,
     )
     build_area = BuildArea(
-        anchor_pos=(
-            sidebar.width + (SCREEN_WIDTH - sidebar.width) / 2,
-            SCREEN_HEIGHT - slot_height // 2 - 24,
-        ),
+        anchor_pos=_build_area_anchor(),
         slot_height=slot_height,
         slot_count=slot_count,
         horizontal_snap_points=horizontal_snap_points,
@@ -1030,6 +1029,36 @@ def handle_camera():
         for token in tokens:
             token.hitbox.x += (player.speed - camera_scroll_speed)
 
+
+def _build_area_anchor():
+    return (
+        sidebar.width + (SCREEN_WIDTH - sidebar.width) / 2,
+        SCREEN_HEIGHT - slot_height // 2 - 24,
+    )
+
+
+def handle_resize(width, height):
+    """Re-derive every screen-size-dependent layout after a window resize.
+
+    VIDEORESIZE only reports the new size — SDL doesn't resize the existing
+    surface on its own, so `screen` has to be recreated via set_mode() here.
+    SCREEN_WIDTH/SCREEN_HEIGHT are read fresh by handle_camera/handle_background
+    and other per-frame code, so updating them is enough for those. Only the
+    pre-built sidebar/build_area/visuals objects need to be told directly.
+    """
+    global screen, SCREEN_WIDTH, SCREEN_HEIGHT
+    SCREEN_WIDTH, SCREEN_HEIGHT = max(1, width), max(1, height)
+    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), flags)
+
+    visuals.screen_width = SCREEN_WIDTH
+    visuals.screen_height = SCREEN_HEIGHT
+
+    if sidebar is not None:
+        sidebar.resize(SCREEN_HEIGHT)
+    if build_area is not None and sidebar is not None:
+        build_area.anchor_x, build_area.anchor_y = _build_area_anchor()
+
+
 SPAWN_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
 
@@ -1084,6 +1113,8 @@ async def frame():
             if phase == Phase.FLIGHT:
                 visuals._instantiate_new_visual()
             pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
+        elif event.type == pygame.VIDEORESIZE:
+            handle_resize(event.w, event.h)
 
         if score_overlay.visible and score_overlay.handle_event(event):
             continue

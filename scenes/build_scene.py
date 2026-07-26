@@ -70,6 +70,9 @@ class BuildScene:
             self._try_place()
             self.drag.cancel()
 
+        elif event.type == pygame.MOUSEWHEEL:
+            self.sidebar.handle_scroll(pygame.mouse.get_pos(), event.y)
+
     def _try_place(self):
         slot = self.drag.target_slot
         self.last_placed = self.elapsed

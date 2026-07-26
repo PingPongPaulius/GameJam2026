@@ -48,6 +48,8 @@ class PartPalette:
     BACKGROUND_PADDING = 12
     SECTION_HEADER_HEIGHT = 24
     SECTION_GAP = 10
+    SCROLL_STEP = 48
+    BOTTOM_SCROLL_PADDING = 32
 
     def __init__(
         self,
@@ -89,6 +91,9 @@ class PartPalette:
         else:
             self._build_sections(part_defs, top_left, item_size, padding)
 
+        self.scroll_y = 0
+        self.max_scroll = self._compute_max_scroll()
+
         if self.items and self.draw_background:
             self.background_rect = self._compute_background_rect()
 
@@ -120,50 +125,28 @@ class PartPalette:
             return None
         return [pygame.transform.smoothscale(frame, size) for frame in frames]
 
-    def _max_columns_for_width(self, width, item_w, padding):
-        return max(1, (width + padding) // (item_w + padding))
-
     def _fit_layout(self, part_defs, content_rect, item_size, padding, parts_per_row):
-        grouped = self._group_part_defs(part_defs)
+        """Choose an item size/column count that fits the available width.
+
+        Vertical overflow is expected and fine — the palette scrolls to
+        reveal parts below the visible area instead of shrinking icons.
+        """
         preferred = max(1, parts_per_row)
         sizes = (64, 56, 48, 40, 32)
 
-        # 1) Keep requested columns; shrink icons to fit height.
         for size in sizes:
-            if self._layout_fits(grouped, content_rect, (size, size), padding, preferred):
+            grid_width = preferred * size + (preferred - 1) * padding
+            if grid_width <= content_rect.width:
                 return (size, size), padding, preferred
 
-        # 2) Width too tight for preferred columns — reduce columns.
         for columns in range(preferred - 1, 0, -1):
             for size in sizes:
-                if self._layout_fits(grouped, content_rect, (size, size), padding, columns):
+                grid_width = columns * size + (columns - 1) * padding
+                if grid_width <= content_rect.width:
                     return (size, size), padding, columns
 
-        # 3) Height too tight (extra sections) — pack MORE columns to shorten the list.
-        max_columns = self._max_columns_for_width(content_rect.width, sizes[-1], padding)
-        for columns in range(preferred + 1, max_columns + 1):
-            for size in sizes:
-                if self._layout_fits(grouped, content_rect, (size, size), padding, columns):
-                    return (size, size), padding, columns
-
-        # 4) Last resort: smallest icons, as many columns as width allows.
-        # Never force 1 column — that makes overflow worse when height is the limit.
         size = sizes[-1]
-        columns = self._max_columns_for_width(content_rect.width, size, padding)
-        return (size, size), padding, columns
-
-    def _layout_fits(self, grouped, content_rect, item_size, padding, parts_per_row):
-        w, h = item_size
-        grid_width = parts_per_row * w + (parts_per_row - 1) * padding
-        if grid_width > content_rect.width:
-            return False
-
-        y = content_rect.y
-        for _, defs in grouped:
-            y += self.SECTION_HEADER_HEIGHT + padding // 2
-            row_count = (len(defs) + parts_per_row - 1) // parts_per_row
-            y += row_count * h + max(0, row_count - 1) * padding + self.SECTION_GAP
-        return y <= content_rect.bottom
+        return (size, size), padding, 1
 
     def _group_part_defs(self, part_defs) -> list[tuple[PartType, list[PartDef]]]:
         grouped = defaultdict(list)
@@ -208,6 +191,29 @@ class PartPalette:
 
             self.sections.append(PaletteSection(part_type, title, header_rect, section_items))
 
+    def _compute_max_scroll(self) -> int:
+        if self.content_rect is None or not self.items:
+            return 0
+        content_bottom = max(item.rect.bottom for item in self.items)
+        overflow = content_bottom - self.content_rect.bottom
+        # Keep a little scroll headroom near the fit boundary so the last
+        # row can always be nudged fully into view, even when it just
+        # barely reaches (or slightly clears) the bottom edge.
+        return max(0, overflow + self.BOTTOM_SCROLL_PADDING)
+
+    def handle_scroll(self, mouse_pos, wheel_y) -> bool:
+        """Scroll the palette in response to a mouse wheel event.
+
+        Returns True if the event was consumed (mouse over the parts area
+        and there's something to scroll).
+        """
+        if self.max_scroll <= 0:
+            return False
+        if self.content_rect is not None and not self.content_rect.collidepoint(mouse_pos):
+            return False
+        self.scroll_y = max(0, min(self.max_scroll, self.scroll_y - wheel_y * self.SCROLL_STEP))
+        return True
+
     def _compute_background_rect(self) -> pygame.Rect:
         rects = [item.rect for item in self.items]
         rects.extend(section.header_rect for section in self.sections)
@@ -239,7 +245,7 @@ class PartPalette:
 
     def _draw_sections(self, surface):
         for index, section in enumerate(self.sections):
-            header = section.header_rect
+            header = section.header_rect.move(0, -self.scroll_y)
             title = self._section_font.render(section.title, True, (190, 200, 220))
             surface.blit(title, (header.x, header.y + 4))
 
@@ -252,15 +258,37 @@ class PartPalette:
                 1,
             )
 
+    def _draw_scrollbar(self, surface):
+        if self.max_scroll <= 0 or self.content_rect is None:
+            return
+
+        track = pygame.Rect(self.content_rect.right - 4, self.content_rect.y, 4, self.content_rect.height)
+        pygame.draw.rect(surface, (20, 22, 30), track, border_radius=2)
+
+        content_height = self.content_rect.height + self.max_scroll
+        thumb_height = max(24, int(track.height * (self.content_rect.height / content_height)))
+        thumb_y = track.y + int((track.height - thumb_height) * (self.scroll_y / self.max_scroll))
+        thumb = pygame.Rect(track.x, thumb_y, track.width, thumb_height)
+        pygame.draw.rect(surface, (140, 150, 175), thumb, border_radius=2)
+
     def draw(self, surface):
         if self.draw_background:
             self._draw_background(surface)
+
+        prev_clip = surface.get_clip()
+        if self.content_rect is not None:
+            surface.set_clip(self.content_rect.clip(prev_clip))
+
         self._draw_sections(surface)
         for item in self.items:
+            rect = item.rect.move(0, -self.scroll_y)
             image = self.assets.get_image(item.part_def.sprite)
-            surface.blit(pygame.transform.smoothscale(image, item.rect.size), item.rect)
+            surface.blit(pygame.transform.smoothscale(image, rect.size), rect)
             border_color = (180, 210, 255) if item is self.hovered_item else (255, 255, 255)
-            pygame.draw.rect(surface, border_color, item.rect, 0 if item is self.hovered_item else 1)
+            pygame.draw.rect(surface, border_color, rect, 0 if item is self.hovered_item else 1)
+
+        surface.set_clip(prev_clip)
+        self._draw_scrollbar(surface)
 
         self.cover.update()
         self.cover.draw(surface)
@@ -280,7 +308,8 @@ class PartPalette:
 
         part = self.hovered_item.part_def
         lines = self._stat_lines(part)
-        self._draw_tooltip_panel(surface, self.hovered_item.rect, part, lines)
+        anchor_rect = self.hovered_item.rect.move(0, -self.scroll_y)
+        self._draw_tooltip_panel(surface, anchor_rect, part, lines)
 
     def _stat_lines(self, part: PartDef) -> list[tuple[str, str]]:
         lines = [("Weight", f"{part.weight:.1f}")]
@@ -352,7 +381,10 @@ class PartPalette:
     def item_at(self, pos):
         if self.cover.covered:
             return None
+        if self.content_rect is not None and not self.content_rect.collidepoint(pos):
+            return None
+        adjusted = (pos[0], pos[1] + self.scroll_y)
         for item in self.items:
-            if item.rect.collidepoint(pos):
+            if item.rect.collidepoint(adjusted):
                 return item
         return None

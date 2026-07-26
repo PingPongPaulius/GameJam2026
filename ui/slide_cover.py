@@ -42,6 +42,21 @@ class SlideCover:
         self.frame_index = 0
         self.current_rect = self.start_rect.copy()
 
+    def set_covered(self, covered: bool):
+        """Snap instantly to open/closed with no animation.
+
+        Used when a layout rebuild (e.g. window resize) recreates the cover
+        and needs to restore whatever lock state it had before the rebuild.
+        """
+        self.active = False
+        self.covered = covered
+        if covered:
+            self.frame_index = (len(self.frames) - 1) if self.frames else 0
+            self.current_rect = self.rect.copy()
+        else:
+            self.frame_index = 0
+            self.current_rect = self.start_rect.copy()
+
     def update(self):
         if not self.active:
             return

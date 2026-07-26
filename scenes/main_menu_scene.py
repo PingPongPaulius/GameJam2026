@@ -20,10 +20,11 @@ class MainMenuScene:
         self.center_x = self.screen_width / 2
         self._status_font = pygame.font.SysFont(None, 24)
 
-        button_y_start = 300
+        self.title_y = 160
+        self.button_y_start = 300
         button_spacing = 10
         button_padding = (20, 10)
-        
+
         self.buttons = self._create_menu_buttons(
             [
                 ("Start game", self.start_game),
@@ -33,7 +34,7 @@ class MainMenuScene:
                 ("Missions", self.show_pilots),
                 ("Quit", self.quit_game),
             ],
-            self.center_x, button_y_start, button_spacing, padding=button_padding,
+            self.center_x, self.button_y_start, button_spacing, padding=button_padding,
             bg_color=COLORS["black"], text_color=COLORS["white"]
         )
         self._start_button = self.buttons[0]
@@ -44,17 +45,28 @@ class MainMenuScene:
         for button in self.buttons:
             button.update()
 
+    def _sync_layout(self, screen):
+        width, height = screen.get_size()
+        if (width, height) == (self.screen_width, self.screen_height):
+            return
+        self.screen_width, self.screen_height = width, height
+        self.center_x = width / 2
+        for button in self.buttons:
+            button.hitbox.centerx = int(self.center_x)
+
     def draw(self, screen):
+        self._sync_layout(screen)
+
         image_width = self.background.get_width()
         image_height = self.background.get_height()
 
         for x in range(0, self.screen_width, image_width):
             for y in range(0, self.screen_height, image_height):
                 screen.blit(self.background, (x, y))
-        
+
         font = pygame.font.Font("fonts/" + self.game_title_font + ".ttf", self.game_title_font_size)
         game_title = font.render(self.game_title.title(), True, COLORS["yellow"])
-        title_rect = game_title.get_rect(center=(self.center_x, y + 200))
+        title_rect = game_title.get_rect(center=(self.center_x, self.title_y))
         screen.blit(game_title, title_rect)
 
         for button in self.buttons:

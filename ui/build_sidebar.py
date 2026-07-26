@@ -27,15 +27,38 @@ class BuildSidebar:
     def __init__(self, pilot: Pilot, part_defs, assets, screen_height: int):
         self.pilot = pilot
         self.assets = assets
+        self.part_defs = part_defs
         self._attr_font = pygame.font.SysFont(None, 20)
         self._portrait_surface = None
 
-        base = pygame.image.load(self.SIDEBAR_IMAGE).convert_alpha()
+        self._base_image = pygame.image.load(self.SIDEBAR_IMAGE).convert_alpha()
+        self._portrait_image = pygame.image.load(
+            f"Sprites/pilots/{pilot.portrait_sprite}"
+        ).convert_alpha()
+
+        self._layout(screen_height)
+
+    def resize(self, screen_height: int):
+        """Re-derive every size-dependent value for a new screen height.
+
+        Preserves lock (garage-door cover) and scroll state across the
+        rebuild so an in-progress build round isn't disturbed.
+        """
+        was_locked = self.palette.cover.covered
+        prev_scroll = self.palette.scroll_y
+
+        self._layout(screen_height)
+
+        if was_locked:
+            self.palette.cover.set_covered(True)
+        self.palette.scroll_y = min(prev_scroll, self.palette.max_scroll)
+
+    def _layout(self, screen_height: int):
         scale = screen_height / SOURCE_SIZE[1]
         self.width = int(SOURCE_SIZE[0] * scale)
         self.height = screen_height
         self.rect = pygame.Rect(0, 0, self.width, self.height)
-        self._background = pygame.transform.smoothscale(base, (self.width, self.height))
+        self._background = pygame.transform.smoothscale(self._base_image, (self.width, self.height))
 
         self.pilot_region = _scale_region(PILOT_REGION, scale)
         self.attr_region = _scale_region(ATTR_REGION, scale)
@@ -45,8 +68,8 @@ class BuildSidebar:
         parts_content.height -= int(PARTS_TOP_PADDING * scale)
 
         self.palette = PartPalette(
-            part_defs,
-            assets,
+            self.part_defs,
+            self.assets,
             content_rect=parts_content,
             cover_rect=_scale_region(COVER_REGION, scale),
             draw_background=False,
@@ -56,10 +79,8 @@ class BuildSidebar:
         self._load_portrait()
 
     def _load_portrait(self):
-        path = f"Sprites/pilots/{self.pilot.portrait_sprite}"
-        image = pygame.image.load(path).convert_alpha()
         side = min(self.pilot_region.width, self.pilot_region.height) - 16
-        self._portrait_surface = self._scale_to_square(image, side)
+        self._portrait_surface = self._scale_to_square(self._portrait_image, side)
 
     @staticmethod
     def _scale_to_square(image: pygame.Surface, side: int) -> pygame.Surface:
@@ -92,6 +113,9 @@ class BuildSidebar:
 
     def item_at(self, pos):
         return self.palette.item_at(pos)
+
+    def handle_scroll(self, mouse_pos, wheel_y):
+        return self.palette.handle_scroll(mouse_pos, wheel_y)
 
     def draw(self, surface):
         surface.blit(self._background, self.rect.topleft)
