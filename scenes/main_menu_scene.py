@@ -1,7 +1,11 @@
-import pygame
+import random
 import sys
+
+import pygame
+
 from enums.phases import Phase
 from manager.asset_manager import AssetManager
+from rendering.flight_visuals import FlightVisuals
 from UI import Button, COLORS
 
 class MainMenuScene:
@@ -39,11 +43,30 @@ class MainMenuScene:
         )
         self._start_button = self.buttons[0]
 
+        self.visuals = FlightVisuals(100_000, self.screen_width, self.screen_height)
+        self.visuals.HEIGHT_BAND_SPRITES[5] = ["planet_1", "planet_2", "planet_3", "ufo"]
+        self.visuals.sprite_images = {
+            "ufo": pygame.image.load("Sprites/Background Clutter/Clutter_UFO.png").convert_alpha(),
+            "planet_1": pygame.image.load("Sprites/Background Clutter/Clutter_Planet1.png").convert_alpha(),
+            "planet_2": pygame.image.load("Sprites/Background Clutter/Clutter_Planet2.png").convert_alpha(),
+            "planet_3": pygame.image.load("Sprites/Background Clutter/Clutter_Planet3.png").convert_alpha(),
+        }
+        self._spawn_timer = 0.0
+        self._spawn_interval = random.uniform(8, 30)
+        self.visuals._instantiate_new_visual()
+
     def update(self, dt):
         ready = True if self.can_start is None else bool(self.can_start())
         self._start_button.active = ready
         for button in self.buttons:
             button.update()
+
+        self.visuals.update(dt)
+        self._spawn_timer += dt
+        if self._spawn_timer >= self._spawn_interval:
+            self._spawn_timer = 0.0
+            self._spawn_interval = random.uniform(2.0, 5.0)
+            self.visuals._instantiate_new_visual()
 
     def _sync_layout(self, screen):
         width, height = screen.get_size()
@@ -51,6 +74,8 @@ class MainMenuScene:
             return
         self.screen_width, self.screen_height = width, height
         self.center_x = width / 2
+        self.visuals.screen_width = width
+        self.visuals.screen_height = height
         for button in self.buttons:
             button.hitbox.centerx = int(self.center_x)
 
@@ -63,6 +88,8 @@ class MainMenuScene:
         for x in range(0, self.screen_width, image_width):
             for y in range(0, self.screen_height, image_height):
                 screen.blit(self.background, (x, y))
+
+        self.visuals.draw(screen)
 
         font = pygame.font.Font("fonts/" + self.game_title_font + ".ttf", self.game_title_font_size)
         game_title = font.render(self.game_title.title(), True, COLORS["yellow"])

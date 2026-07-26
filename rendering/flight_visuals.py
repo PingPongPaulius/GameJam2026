@@ -38,12 +38,12 @@ class FlightVisuals:
         # Each band -> list of possible sprite keys. Swap keys for whatever
         # naming scheme you use to look up loaded pygame.Surface objects.
         self.HEIGHT_BAND_SPRITES = {
-            0: ["bird_small", "bird_medium"],
-            1: ["bird_medium", "kite"],
+            0: ["birds"],
+            1: ["birds", "kite"],
             2: ["cloud_wisp", "small_plane"],
-            3: ["airliner", "contrail"],
-            4: ["balloon", "glider"],
-            5: ["satellite_glint", "high_cloud"],
+            3: ["meteor", "contrail"],
+            4: ["satellite", "ufo"],
+            5: ["planet_1", "planet_2", "planet_3"],
         }
 
         self.sprite_images = {}  # key -> pygame.Surface, populate on load
@@ -52,6 +52,7 @@ class FlightVisuals:
         self.screen_height = screen_height
         self.height = height
         self.visuals_group = pygame.sprite.Group()
+        self._last_spawned_key = None
 
     def _get_band_index(self):
         band_index = 0
@@ -63,18 +64,28 @@ class FlightVisuals:
         return band_index
 
     def _instantiate_new_visual(self):
+        if self.visuals_group:
+            return None
+
         band_index = self._get_band_index()
-        possible_sprites = self.HEIGHT_BAND_SPRITES.get(band_index, [])
+        possible_sprites = [
+            key for key in self.HEIGHT_BAND_SPRITES.get(band_index, [])
+            if key in self.sprite_images and key != self._last_spawned_key
+        ]
+        if not possible_sprites:
+            # Only one option in this band (or last key was the only loaded one).
+            possible_sprites = [
+                key for key in self.HEIGHT_BAND_SPRITES.get(band_index, [])
+                if key in self.sprite_images
+            ]
         if not possible_sprites:
             return None
 
         sprite_key = random.choice(possible_sprites)
-        image = self.sprite_images.get(sprite_key)
-        if image is None:
-            return None
+        image = self.sprite_images[sprite_key]
 
         direction = random.choice((-1, 1))          # -1 = right-to-left, 1 = left-to-right
-        angle_deg = random.uniform(-15, 15)          # slight up/down drift, tweak per band if desired
+        angle_deg = random.uniform(0, 20)             # sideways or slight downward drift only
         speed = random.uniform(180, 280)              # px/sec, tweak per band for parallax feel
 
         spawn_y = random.uniform(0, self.screen_height)
@@ -82,6 +93,7 @@ class FlightVisuals:
 
         visual = VisualSprite(image, spawn_x, spawn_y, speed, angle_deg, direction)
         self.visuals_group.add(visual)
+        self._last_spawned_key = sprite_key
 
         print(f"Spawning {sprite_key} at band {band_index}, pos=({spawn_x:.0f},{spawn_y:.0f})")
 
