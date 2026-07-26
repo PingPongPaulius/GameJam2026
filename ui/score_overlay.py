@@ -22,6 +22,7 @@ class ScoreOverlay:
         self.height = 0.0
         self.max_speed = 0.0
         self.flight_time = 0.0
+        self.failure_reason = ""
         self.status = ""
         self.status_ok = None
         self.leaderboard = []
@@ -34,6 +35,7 @@ class ScoreOverlay:
         self._button_was_down = False
 
         self._title_font = pygame.font.SysFont(None, 36)
+        self._reason_font = pygame.font.SysFont(None, 22)
         self._label_font = pygame.font.SysFont(None, 24)
         self._value_font = pygame.font.SysFont(None, 28)
         self._input_font = pygame.font.SysFont(None, 30)
@@ -47,12 +49,19 @@ class ScoreOverlay:
         self._submit_rect = pygame.Rect(0, 0, 0, 0)
         self._restart_rect = pygame.Rect(0, 0, 0, 0)
 
-    def show(self, height: float, max_speed: float, flight_time: float = 0.0):
+    def show(
+        self,
+        height: float,
+        max_speed: float,
+        flight_time: float = 0.0,
+        failure_reason: str = "",
+    ):
         self.visible = True
         self.name = ""
         self.height = height
         self.max_speed = max_speed
         self.flight_time = max(0.0, float(flight_time))
+        self.failure_reason = failure_reason or ""
         self.status = ""
         self.status_ok = None
         self._submitting = False
@@ -177,10 +186,18 @@ class ScoreOverlay:
         y = panel.y + 24
         right = panel.right - 28
 
-        title_text = "Mission successful" if self.height > 100_000 else "Mission failed"
+        succeeded = self.height > 100_000
+        title_text = "Mission successful" if succeeded else "Mission failed"
         title = self._title_font.render(title_text, True, (220, 232, 250))
         surface.blit(title, (x, y))
-        y += 44
+        y += 40
+
+        if not succeeded and self.failure_reason:
+            reason = self._reason_font.render(self.failure_reason, True, (220, 150, 140))
+            surface.blit(reason, (x, y))
+            y += 28
+
+        y += 4
 
         for label, value in (
             ("Your height", f"{self.height:.0f} m"),
@@ -299,9 +316,10 @@ class ScoreOverlay:
 
     def _panel_height(self) -> int:
         rows = max(1, len(self.leaderboard)) if not self.leaderboard_error else 1
+        reason_extra = 28 if self.height <= 100_000 and self.failure_reason else 0
         if self._submitted:
-            return 330 + rows * self.ROW_HEIGHT
-        return 444 + rows * self.ROW_HEIGHT
+            return 330 + reason_extra + rows * self.ROW_HEIGHT
+        return 444 + reason_extra + rows * self.ROW_HEIGHT
 
     def _draw_leaderboard(self, surface, x: int, y: int, right: int) -> int:
         if self.leaderboard_error:

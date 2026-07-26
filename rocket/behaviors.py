@@ -39,10 +39,31 @@ STRUCTURAL_ENGINE_LIMITS = (
 )
 
 
+# User-facing copy for the score overlay (and any other UI).
+FAILURE_MESSAGES = {
+    "overheat": "Overheated: heat exceeded the airframe limit",
+    "hard_landing": "Hard landing: impact speed was too high",
+    "tumble": "Lost control: rocket tumbled out of flight",
+    "structural": "Structural failure: frame couldn't handle the speed",
+    "no_fins": "Missing fins: rocket became unstable",
+    "pad_stuck": "Failed to leave the launch pad",
+    "altitude": "Altitude shortfall: mission requires 100 km",
+}
+
+
 @dataclass(frozen=True)
 class FlightFailure:
-    kind: str  # "overheat" | "hard_landing" | "tumble" | "structural" | "other"
+    kind: str  # keys of FAILURE_MESSAGES (flight failures)
     severity: float  # 0..1+ for VFX scale
+
+    @property
+    def message(self) -> str:
+        return FAILURE_MESSAGES.get(self.kind, "Unknown failure")
+
+
+def describe_failure(kind: str) -> str:
+    """Human-readable reason for a failure kind, or empty if unknown."""
+    return FAILURE_MESSAGES.get(kind, "")
 
 
 def check_flight_failure(
@@ -69,7 +90,7 @@ def check_flight_failure(
         return _check_hard_landing(impact_speed)
 
     if force_failure:
-        return FlightFailure(kind="other", severity=0.5)
+        return FlightFailure(kind="no_fins", severity=0.5)
 
     return None
 

@@ -3,6 +3,7 @@ import glob
 import re
 import secrets
 import random
+import sys
 from typing import Optional
 from enums.phases import Phase
 
@@ -42,7 +43,7 @@ from rendering.flight_visuals import FlightVisuals
 from vector import Vector
 from manager.audio_manager import AudioManager
 from manager.explosion_manager import ExplosionManager
-from rocket.behaviors import check_flight_failure
+from rocket.behaviors import check_flight_failure, describe_failure
 from rocket.part_types import PartType
 
 from helpers.animation_asset_adapter import AnimationAssetAdapter
@@ -58,7 +59,11 @@ BG_COLOR = (20, 20, 20)
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 FPS = 60
+# Cap frame delta so a background tab waking up (or a hitch) can't jump physics
+# far enough to falsely trip tumble / structural / heat failures.
+MAX_DT = 1.0 / 20.0
 dt = 1/FPS
+_page_was_hidden = False
 
 phase = Phase.MENU
 
@@ -144,6 +149,7 @@ score_submit_timer = 0.0
 score_submit_armed = False
 rocket_destroyed = False
 rocket_breakapart = False
+failure_reason = ""
 pad_stuck_timer = 0.0
 DEBRIS_GRAVITY = 320.0
 DEBRIS_DRAG = 0.4
@@ -208,7 +214,7 @@ def return_to_menu():
     global phase, V, W, UP, camera_scroll_y, camera_scroll_x
     global rocket_center_x, rocket_center_y, max_height, max_speed, flight_time
     global score_submit_timer, score_submit_armed, rocket_destroyed, pad_stuck_timer
-    global rocket_breakapart
+    global rocket_breakapart, failure_reason
 
     score_overlay.hide()
     flight_parts.clear()
@@ -230,6 +236,7 @@ def return_to_menu():
     score_submit_armed = False
     rocket_destroyed = False
     rocket_breakapart = False
+    failure_reason = ""
     pad_stuck_timer = 0.0
     _reset_background_scroll()
 
@@ -264,7 +271,12 @@ def _show_score_overlay():
     score_submit_timer = 0.0
     score_submit_armed = False
     phase = Phase.RESULTS
-    score_overlay.show(max_height, max_speed, flight_time)
+    reason = ""
+    if max_height <= 100_000:
+        reason = failure_reason or describe_failure(
+            "pad_stuck" if max_height <= 1.0 else "altitude"
+        )
+    score_overlay.show(max_height, max_speed, flight_time, failure_reason=reason)
 
 
 def _halt_rocket_flight():
@@ -315,9 +327,11 @@ def update_breakapart_debris(dt: float):
 
 def _trigger_explosion(failure):
     global rocket_destroyed, rocket_breakapart, score_submit_timer, score_submit_armed
+    global failure_reason
     if rocket_destroyed:
         return
     rocket_destroyed = True
+    failure_reason = failure.message
     score_submit_armed = True
     score_submit_timer = 0.0
     # Capture velocity before halt so debris keeps the rocket's momentum.
@@ -521,7 +535,7 @@ def update_flight(dt: float):
 def start_flight():
     global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
     global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
-    global rocket_destroyed, rocket_breakapart, pad_stuck_timer
+    global rocket_destroyed, rocket_breakapart, pad_stuck_timer, failure_reason
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -543,6 +557,7 @@ def start_flight():
     score_submit_armed = False
     rocket_destroyed = False
     rocket_breakapart = False
+    failure_reason = ""
     pad_stuck_timer = 0.0
     _reset_background_scroll()
     V = 0
@@ -772,7 +787,7 @@ async def restart_game() -> bool:
     global phase, V, W, UP, camera_scroll_y, camera_scroll_x
     global rocket_center_x, rocket_center_y
     global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
-    global rocket_destroyed, rocket_breakapart, pad_stuck_timer
+    global rocket_destroyed, rocket_breakapart, pad_stuck_timer, failure_reason
 
     # load_catalogs -> apply_catalogs_to_game picks the pilot uniformly.
     ok, message = await load_catalogs()
@@ -801,6 +816,7 @@ async def restart_game() -> bool:
     score_submit_armed = False
     rocket_destroyed = False
     rocket_breakapart = False
+    failure_reason = ""
     pad_stuck_timer = 0.0
     _reset_background_scroll()
     return True
@@ -984,8 +1000,43 @@ def handle_camera():
 SPAWN_EVENT = pygame.USEREVENT + 1
 pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
 
+
+def _page_is_hidden() -> bool:
+    """True when this browser tab is in the background (web / pygbag only)."""
+    if sys.platform != "emscripten":
+        return False
+    try:
+        import platform
+
+        return bool(platform.window.document.hidden)
+    except Exception:
+        return False
+
+
 async def frame():
-    global dt, phase
+    global dt, phase, _page_was_hidden
+
+    # Background tabs still get occasional frames; without pausing they keep
+    # simulating (or resume with a huge dt) and can explode independently —
+    # which feels like one tab's boom "triggering" the others.
+    if _page_is_hidden():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False
+        if not _page_was_hidden:
+            pygame.mixer.pause()
+            _page_was_hidden = True
+        # Keep the clock advancing so the first visible frame isn't a spike.
+        clock.tick(FPS)
+        await asyncio.sleep(0)
+        return True
+
+    if _page_was_hidden:
+        pygame.mixer.unpause()
+        clock.tick(FPS)
+        dt = 1.0 / FPS
+        _page_was_hidden = False
+
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             return False
@@ -1097,7 +1148,7 @@ async def frame():
     score_overlay.draw(screen)
 
     pygame.display.flip()
-    dt = clock.tick(FPS) / 1000
+    dt = min(clock.tick(FPS) / 1000.0, MAX_DT)
     # Yield to the browser event loop (required for pygbag / python-wasm).
     await asyncio.sleep(0)
     return True
