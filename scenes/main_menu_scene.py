@@ -27,8 +27,13 @@ class MainMenuScene:
         self.button_y_start = 300
         self.button_width = 220  # shared width for all menu buttons
         self.button_spacing = 10
-        self.button_padding = (20, 10)
         self._scale_title()
+        self._button_sprite_sources = [
+            pygame.image.load("Sprites/Button/Button_Neutral3.png").convert_alpha(),
+            pygame.image.load("Sprites/Button/Button_Hover3.png").convert_alpha(),
+            pygame.image.load("Sprites/Button/Button_Down3.png").convert_alpha(),
+        ]
+        self._button_sprites = self._scaled_button_sprites()
 
         self.buttons = self._create_menu_buttons(
             [
@@ -42,8 +47,7 @@ class MainMenuScene:
             self.center_x,
             self.button_y_start,
             self.button_spacing,
-            padding=self.button_padding,
-            bg_color=COLORS["black"],
+            sprites=self._button_sprites,
             text_color=COLORS["white"],
         )
         self._start_button = self.buttons[0]
@@ -83,6 +87,16 @@ class MainMenuScene:
         size = (max_width, max(1, int(src_h * scale)))
         self.title_image = pygame.transform.smoothscale(self._title_source, size)
 
+    def _scaled_button_sprites(self):
+        src_w, src_h = self._button_sprite_sources[0].get_size()
+        width = max(1, int(self.button_width))
+        height = max(1, int(src_h * (width / src_w)))
+        size = (width, height)
+        return [
+            pygame.transform.smoothscale(sprite, size)
+            for sprite in self._button_sprite_sources
+        ]
+
     def _sync_layout(self, screen):
         width, height = screen.get_size()
         if (width, height) == (self.screen_width, self.screen_height):
@@ -119,18 +133,19 @@ class MainMenuScene:
             screen.blit(status_surf, status_rect)
 
     def _create_menu_buttons(self, items, center_x, start_y, spacing=20,
-                    padding=(20, 10), bg_color=(0, 0, 0), text_color=(255, 255, 255)):
+                    sprites=None, text_color=(255, 255, 255)):
         buttons = []
         y = start_y
         width = max(1, int(self.button_width))
+        height = sprites[0].get_height() if sprites else None
         for label, callback in items:
             button = Button(
                 center=(center_x, y),
                 w=width,
+                h=height,
                 label=label,
                 on_click=callback,
-                padding=padding,
-                bg_color=bg_color,
+                sprites=sprites,
                 text_color=text_color,
             )
             button.active = True
