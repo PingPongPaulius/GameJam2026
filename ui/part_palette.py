@@ -17,6 +17,7 @@ GARAGE_DOOR_DURATION_MS = 500
 TYPE_ORDER = [
     PartType.NOSE_CONE,
     PartType.FUEL_TANK,
+    PartType.FRAME,
     PartType.ENGINE,
     PartType.FIN,
     PartType.BOOSTER,

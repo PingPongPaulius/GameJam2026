@@ -1,92 +1,15 @@
 {
-  "_notes": {
-    "units": {
-      "weight": "tons (dry mass of the part)",
-      "thrust": "kN",
-      "fuel_capacity": "tons of fuel (full tank mass = weight + fuel_capacity)",
-      "fuel_consumption": "tons/s",
-      "drag": "relative dimensionless coefficient; a_drag = DRAG_SCALE * v^2 * sum(drag), DRAG_SCALE ~ 2e-5",
-      "stability_contribution": "relative, positive = more stable",
-      "heat_dissipation": "placeholder, not yet modeled"
-    },
-    "implied_isp": "Isp = thrust*1000 / (fuel_consumption*1000 * 9.81)"
-  },
   "parts": [
     {
-      "id": "carbon_needle_nose_cone",
-      "name": "Carbon Needle Nose Cone",
-      "part_type": "NOSE_CONE",
-      "weight": 0.1,
-      "drag": 0.1,
-      "stability_contribution": 0.5,
-      "sprite": "NoseCone_CarbonNeedle.png",
-      "cone": true,
-      "drag_reduction_factor": 0.5
-    },
-    {
-      "id": "standard_nose_cone",
-      "name": "Standard Nose Cone",
-      "part_type": "NOSE_CONE",
-      "weight": 0.15,
-      "drag": 0.2,
-      "stability_contribution": 0.5,
-      "sprite": "NoseCone_Standard.png",
-      "cone": true,
-      "drag_reduction_factor": 0.6
-    },
-    {
-      "id": "blunt_nose_cone",
-      "name": "Blunt Nose Cone",
-      "part_type": "NOSE_CONE",
-      "weight": 0.2,
-      "drag": 0.5,
-      "stability_contribution": 0.4,
-      "sprite": "NoseCone_BluntCargo.png",
-      "cone": true,
-      "drag_reduction_factor": 0.7
-    },
-
-    {
-      "id": "compact_fuel_tank",
-      "name": "Compact Fuel Tank",
-      "part_type": "FUEL_TANK",
-      "weight": 0.5,
-      "drag": 0.3,
-      "fuel_capacity": 4.0,
-      "stability_contribution": 0.5,
-      "sprite": "FuelCell_Compact.png"
-    },
-    {
-      "id": "extended_fuel_tank",
-      "name": "Extended Fuel Tank",
-      "part_type": "FUEL_TANK",
-      "weight": 1.0,
-      "drag": 0.35,
-      "fuel_capacity": 9.0,
-      "stability_contribution": 0.5,
-      "sprite": "FuelCell_Extended.png"
-    },
-    {
-      "id": "cryogenic_fuel_tank",
-      "name": "Cryogenic Fuel Tank",
-      "part_type": "FUEL_TANK",
-      "weight": 0.9,
-      "drag": 0.32,
-      "fuel_capacity": 7.0,
-      "stability_contribution": 0.5,
-      "sprite": "FuelCell_Cryogenic.png"
-    },
-
-    {
-      "id": "small_efficient_engine",
-      "name": "Small Efficient Engine",
+      "id": "heavy_booster_engine",
+      "name": "Heavy Booster Engine",
       "part_type": "ENGINE",
-      "weight": 0.5,
-      "drag": 0.2,
-      "thrust": 40.0,
+      "weight": 3.5,
+      "drag": 0.4,
+      "sprite": "Engine_Heavy.png",
+      "thrust": 300,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.04,
-      "sprite": "Engine_Small.png"
+      "fuel_consumption": 0.5
     },
     {
       "id": "medium_engine",
@@ -94,32 +17,32 @@
       "part_type": "ENGINE",
       "weight": 1.2,
       "drag": 0.25,
-      "thrust": 100.0,
+      "sprite": "Engine_Medium.png",
+      "thrust": 100,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.14,
-      "sprite": "Engine_Medium.png"
+      "fuel_consumption": 0.14
     },
     {
-      "id": "heavy_booster_engine",
-      "name": "Heavy Booster Engine",
+      "id": "small_efficient_engine",
+      "name": "Small Efficient Engine",
       "part_type": "ENGINE",
-      "weight": 3.5,
-      "drag": 0.4,
-      "thrust": 300.0,
+      "weight": 0.5,
+      "drag": 0.2,
+      "sprite": "Engine_Small.png",
+      "thrust": 40,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.5,
-      "sprite": "Engine_Heavy.png"
+      "fuel_consumption": 0.04
     },
     {
       "id": "vacuum_engine",
       "name": "Vacuum Engine",
       "part_type": "ENGINE",
-      "weight": 1.0,
+      "weight": 1,
       "drag": 0.2,
-      "thrust": 60.0,
+      "sprite": "Engine_Vacuum.png",
+      "thrust": 60,
       "heat_dissipation": 0.5,
-      "fuel_consumption": 0.07,
-      "sprite": "Engine_Vacuum.png"
+      "fuel_consumption": 0.07
     },
     {
       "id": "vector_engine",
@@ -127,21 +50,11 @@
       "part_type": "ENGINE",
       "weight": 1.5,
       "drag": 0.28,
-      "thrust": 120.0,
+      "sprite": "Engine_Vector.png",
+      "thrust": 120,
       "heat_dissipation": 0.5,
       "fuel_consumption": 0.082,
-      "sprite": "Engine_Vector.png",
       "gimbal": true
-    },
-
-    {
-      "id": "small_stabilizer_fins",
-      "name": "Small Stabilizer Fins",
-      "part_type": "FIN",
-      "weight": 0.05,
-      "drag": 0.15,
-      "stability_contribution": 6.0,
-      "sprite": "StabilizerFin_Small.png"
     },
     {
       "id": "large_stabilizer_fins",
@@ -149,8 +62,114 @@
       "part_type": "FIN",
       "weight": 0.12,
       "drag": 0.35,
-      "stability_contribution": 12.0,
-      "sprite": "StabilizerFin_Large.png"
+      "sprite": "StabilizerFin_Large.png",
+      "stability_contribution": 12
+    },
+    {
+      "id": "small_stabilizer_fins",
+      "name": "Small Stabilizer Fins",
+      "part_type": "FIN",
+      "weight": 0.05,
+      "drag": 0.15,
+      "sprite": "StabilizerFin_Small.png",
+      "stability_contribution": 6
+    },
+    {
+      "id": "body_heavy_duty",
+      "name": "Heavy Duty Frame",
+      "part_type": "FRAME",
+      "weight": 1.5,
+      "drag": 0.3,
+      "sprite": "Body_HeavyDuty.png"
+    },
+    {
+      "id": "body_light_weight",
+      "name": "Light Weight Body",
+      "part_type": "FRAME",
+      "weight": 0.5,
+      "drag": 0.15,
+      "sprite": "Body_Lightweight.png"
+    },
+    {
+      "id": "body_reinforced",
+      "name": "Reinforced Frame ",
+      "part_type": "FRAME",
+      "weight": 0.9,
+      "drag": 0.15,
+      "sprite": "Body_Reinforced.png"
+    },
+    {
+      "id": "battery_pack",
+      "name": "Battery Pack",
+      "part_type": "FUEL_TANK",
+      "weight": 1.2,
+      "drag": 0.1,
+      "sprite": "Engine_Heavy.png",
+      "fuel_capacity": 14,
+      "heat_dissipation": 3.5
+    },
+    {
+      "id": "compact_fuel_tank",
+      "name": "Compact Fuel Tank",
+      "part_type": "FUEL_TANK",
+      "weight": 0.5,
+      "drag": 0.3,
+      "sprite": "FuelCell_Compact.png",
+      "fuel_capacity": 4,
+      "stability_contribution": 0.5
+    },
+    {
+      "id": "cryogenic_fuel_tank",
+      "name": "Cryogenic Fuel Tank",
+      "part_type": "FUEL_TANK",
+      "weight": 0.9,
+      "drag": 0.32,
+      "sprite": "FuelCell_Cryogenic.png",
+      "fuel_capacity": 7,
+      "stability_contribution": 0.5
+    },
+    {
+      "id": "extended_fuel_tank",
+      "name": "Extended Fuel Tank",
+      "part_type": "FUEL_TANK",
+      "weight": 1,
+      "drag": 0.35,
+      "sprite": "FuelCell_Extended.png",
+      "fuel_capacity": 9,
+      "stability_contribution": 0.5
+    },
+    {
+      "id": "blunt_nose_cone",
+      "name": "Blunt Nose Cone",
+      "part_type": "NOSE_CONE",
+      "weight": 0.2,
+      "drag": 0.5,
+      "sprite": "NoseCone_BluntCargo.png",
+      "stability_contribution": 0.4,
+      "drag_reduction_factor": 0.7,
+      "cone": true
+    },
+    {
+      "id": "carbon_needle_nose_cone",
+      "name": "Carbon Needle Nose Cone",
+      "part_type": "NOSE_CONE",
+      "weight": 0.1,
+      "drag": 0.1,
+      "sprite": "NoseCone_CarbonNeedle.png",
+      "stability_contribution": 0.5,
+      "drag_reduction_factor": 0.5,
+      "cone": true
+    },
+    {
+      "id": "standard_nose_cone",
+      "name": "Standard Nose Cone",
+      "part_type": "NOSE_CONE",
+      "weight": 0.15,
+      "drag": 0.2,
+      "sprite": "NoseCone_Standard.png",
+      "stability_contribution": 0.5,
+      "drag_reduction_factor": 0.6,
+      "cone": true
     }
   ]
 }

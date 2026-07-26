@@ -143,7 +143,10 @@ PAD_STUCK_SPEED_EPS = 0.5
 score_submit_timer = 0.0
 score_submit_armed = False
 rocket_destroyed = False
+rocket_breakapart = False
 pad_stuck_timer = 0.0
+DEBRIS_GRAVITY = 320.0
+DEBRIS_DRAG = 0.4
 _background_cache = {}
 _background_slices = []
 _background_scroll_y = 0.0
@@ -205,6 +208,7 @@ def return_to_menu():
     global phase, V, W, UP, camera_scroll_y, camera_scroll_x
     global rocket_center_x, rocket_center_y, max_height, max_speed, flight_time
     global score_submit_timer, score_submit_armed, rocket_destroyed, pad_stuck_timer
+    global rocket_breakapart
 
     score_overlay.hide()
     flight_parts.clear()
@@ -225,6 +229,7 @@ def return_to_menu():
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
+    rocket_breakapart = False
     pad_stuck_timer = 0.0
     _reset_background_scroll()
 
@@ -262,18 +267,64 @@ def _show_score_overlay():
     score_overlay.show(max_height, max_speed, flight_time)
 
 
-def _trigger_explosion(failure):
-    global rocket_destroyed, score_submit_timer, score_submit_armed
-    if rocket_destroyed:
-        return
-    rocket_destroyed = True
-    score_submit_armed = True
-    score_submit_timer = 0.0
+def _halt_rocket_flight():
     rocket.y_velocity = 0.0
     rocket.x_velocity = 0.0
     rocket.velocity = 0.0
     rocket.rotation_speed = 0.0
     rocket.fuel_remaining = 0.0  # stops engine loop during the boom
+
+
+def _seed_breakapart_debris():
+    """Kick every flight part outward from the COM so the rocket tears apart."""
+    # Match the screen-space motion used while flying (up = decreasing y).
+    base_vx = rocket.x_velocity
+    base_vy = -rocket.y_velocity
+    for part in flight_parts:
+        dx = part.x - rocket_center_x
+        dy = part.y - rocket_center_y
+        dist = math.hypot(dx, dy)
+        if dist < 1.0:
+            angle = random.uniform(0, math.tau)
+            dx, dy = math.cos(angle), math.sin(angle)
+            dist = 1.0
+        nx, ny = dx / dist, dy / dist
+        outward = random.uniform(120, 280)
+        part.is_debris = True
+        part.vx = base_vx + nx * outward + random.uniform(-50, 50)
+        part.vy = base_vy + ny * outward + random.uniform(-40, 80)
+        part.angle = rocket.rotation
+        if part.instance.part_def.gimbal:
+            part.angle += part.instance.gimbal_angle
+        part.spin = random.uniform(-10.0, 10.0)
+
+
+def update_breakapart_debris(dt: float):
+    for part in flight_parts:
+        if not part.is_debris:
+            continue
+        part.vy += DEBRIS_GRAVITY * dt
+        drag = max(0.0, 1.0 - DEBRIS_DRAG * dt)
+        part.vx *= drag
+        part.vy *= drag
+        part.x += part.vx * dt
+        part.y += part.vy * dt
+        part.angle += part.spin * dt
+        part.spin *= max(0.0, 1.0 - 0.35 * dt)
+
+
+def _trigger_explosion(failure):
+    global rocket_destroyed, rocket_breakapart, score_submit_timer, score_submit_armed
+    if rocket_destroyed:
+        return
+    rocket_destroyed = True
+    score_submit_armed = True
+    score_submit_timer = 0.0
+    # Capture velocity before halt so debris keeps the rocket's momentum.
+    if failure.kind == "structural" and flight_parts:
+        rocket_breakapart = True
+        _seed_breakapart_debris()
+    _halt_rocket_flight()
     # No boom for empty builds or rockets that never left the pad.
     lifted_off = max_height > 1.0 and bool(rocket.parts)
     if lifted_off:
@@ -295,10 +346,13 @@ def update_flight(dt: float):
     DRAG_COEFFICIENT = 2e-5 * 30
     THRUST_COEFFICIENT = 10
 
-    # After an explosion, wait briefly so the VFX can play, then score.
+    # After an explosion / breakapart, wait briefly so the VFX can play, then score.
     if rocket_destroyed:
+        if rocket_breakapart:
+            update_breakapart_debris(dt)
         score_submit_timer += dt
-        if score_submit_timer >= EXPLOSION_SCORE_DELAY:
+        delay = EXPLOSION_SCORE_DELAY * (2.0 if rocket_breakapart else 1.0)
+        if score_submit_timer >= delay:
             _show_score_overlay()
         return
 
@@ -367,18 +421,7 @@ def update_flight(dt: float):
         if has_fuel and rocket.moment_of_inertia > 0:
             engine_dy = abs((p.slot_index * 64.0 / Rocket.VERTICAL_UNIT) - cog_y)
             gimbal_torque += p.part_def.thrust * engine_dy * math.sin(p.gimbal_angle)
-        
-        # Add logic to check that rocket has required framing based on engine type
-        if rocket.mass < 7:
-            # Add shit later
-             print("Rocket is too light")
-        elif rocket.mass > 7 and rocket.mass < 10 and p.part_def.id == "body_reinforced" or p.part_def.id == "body_heavy_duty":
-            # Add shit later
-            print("Rocket is too light")
-        elif rocket.mass > 10 and p.part_def.id == "body_reinforced":
-            # Add shit later
-            print("Rocket is too heavy")
-        
+
     gimbal_torque_accel = gimbal_torque / rocket.moment_of_inertia if rocket.moment_of_inertia > 0 else 0.0
 
     rocket.rotation_acceleration = (
@@ -478,7 +521,7 @@ def update_flight(dt: float):
 def start_flight():
     global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
     global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
-    global rocket_destroyed, pad_stuck_timer
+    global rocket_destroyed, rocket_breakapart, pad_stuck_timer
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -499,6 +542,7 @@ def start_flight():
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
+    rocket_breakapart = False
     pad_stuck_timer = 0.0
     _reset_background_scroll()
     V = 0
@@ -660,6 +704,20 @@ def load_catalogs_from_files() -> tuple[bool, str]:
     return True, f"Loaded offline {len(parts)} parts, {len(pilots)} pilots"
 
 
+def _merge_missing_local_parts():
+    """Keep newer local-only parts (e.g. frames) when the API catalog is older."""
+    try:
+        local_parts = load_part_catalog_from_file()
+    except (OSError, ValueError, KeyError, TypeError):
+        return 0
+    added = 0
+    for part_id, part_def in local_parts.items():
+        if part_id not in PART_CATALOG:
+            PART_CATALOG[part_id] = part_def
+            added += 1
+    return added
+
+
 async def load_catalogs() -> tuple[bool, str]:
     """Fetch parts + pilots from the API, falling back to local JSON if needed."""
     global catalogs_ready
@@ -669,10 +727,14 @@ async def load_catalogs() -> tuple[bool, str]:
     if parts_ok and pilots_ok:
         set_part_catalog(parse_part_catalog(parts_result))
         set_pilot_catalog(parse_pilots(pilots_result))
+        merged = _merge_missing_local_parts()
         if PART_CATALOG and PILOT_CATALOG:
             apply_catalogs_to_game()
             catalogs_ready = True
-            return True, f"Loaded {len(PART_CATALOG)} parts, {len(PILOT_CATALOG)} pilots from API"
+            extra = f" (+{merged} local)" if merged else ""
+            return True, (
+                f"Loaded {len(PART_CATALOG)} parts, {len(PILOT_CATALOG)} pilots from API{extra}"
+            )
         api_error = "API returned empty catalogs"
     else:
         reasons = []
@@ -710,7 +772,7 @@ async def restart_game() -> bool:
     global phase, V, W, UP, camera_scroll_y, camera_scroll_x
     global rocket_center_x, rocket_center_y
     global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
-    global rocket_destroyed, pad_stuck_timer
+    global rocket_destroyed, rocket_breakapart, pad_stuck_timer
 
     # load_catalogs -> apply_catalogs_to_game picks the pilot uniformly.
     ok, message = await load_catalogs()
@@ -738,6 +800,7 @@ async def restart_game() -> bool:
     score_submit_timer = 0.0
     score_submit_armed = False
     rocket_destroyed = False
+    rocket_breakapart = False
     pad_stuck_timer = 0.0
     _reset_background_scroll()
     return True
@@ -776,6 +839,8 @@ def move(token):
 
 
 def update_flight_part_positions():
+    if rocket_breakapart:
+        return
     for instance in flight_parts:
         rot_dx, rot_dy = rotated_offset(instance.local_dx, instance.local_dy, rocket.rotation)
         instance.x = rocket_center_x + rot_dx
@@ -976,7 +1041,19 @@ async def frame():
         if phase == Phase.FLIGHT:
             _trigger_visuals(dt, screen, rocket.height)
 
-        if not rocket_destroyed:
+        if rocket_breakapart:
+            for instance in flight_parts:
+                part = instance.instance
+                image = build_scene._part_image(
+                    part.part_def,
+                    part.offset_x,
+                    slot=part.slot_index,
+                )
+                rotated_image = pygame.transform.rotate(
+                    image, -math.degrees(instance.angle)
+                )
+                screen.blit(rotated_image, rotated_image.get_rect(center=instance.get_pos()))
+        elif not rocket_destroyed:
             thrusting = (
                 phase == Phase.FLIGHT
                 and rocket.fuel_remaining > 0
