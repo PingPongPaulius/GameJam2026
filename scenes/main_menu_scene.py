@@ -13,12 +13,11 @@ class MainMenuScene:
         self.on_phase_change = on_phase_change
         self.can_start = can_start
         self.status_text = "Loading parts & pilots..."
-        self.game_title = "20 seconds to launch"
-        self.game_title_font= "Starjedi"
-        self.game_title_font_size = 60
         background_file = "Background_Slice_6.png"
         manager = AssetManager()
         self.background = manager.get_background(background_file)
+        self._title_source = manager.get_background("game-title.png")
+        self.title_image = self._title_source
         self.buttons = {}
         self.screen_width, self.screen_height = screen.get_size()
         self.center_x = self.screen_width / 2
@@ -26,8 +25,10 @@ class MainMenuScene:
 
         self.title_y = 160
         self.button_y_start = 300
-        button_spacing = 10
-        button_padding = (20, 10)
+        self.button_width = 220  # shared width for all menu buttons
+        self.button_spacing = 10
+        self.button_padding = (20, 10)
+        self._scale_title()
 
         self.buttons = self._create_menu_buttons(
             [
@@ -38,8 +39,12 @@ class MainMenuScene:
                 ("Missions", self.show_pilots),
                 ("Quit", self.quit_game),
             ],
-            self.center_x, self.button_y_start, button_spacing, padding=button_padding,
-            bg_color=COLORS["black"], text_color=COLORS["white"]
+            self.center_x,
+            self.button_y_start,
+            self.button_spacing,
+            padding=self.button_padding,
+            bg_color=COLORS["black"],
+            text_color=COLORS["white"],
         )
         self._start_button = self.buttons[0]
 
@@ -68,6 +73,16 @@ class MainMenuScene:
             self._spawn_interval = random.uniform(2.0, 5.0)
             self.visuals._instantiate_new_visual()
 
+    def _scale_title(self):
+        max_width = max(1, int(self.screen_width * 0.7))
+        src_w, src_h = self._title_source.get_size()
+        if src_w <= max_width:
+            self.title_image = self._title_source
+            return
+        scale = max_width / src_w
+        size = (max_width, max(1, int(src_h * scale)))
+        self.title_image = pygame.transform.smoothscale(self._title_source, size)
+
     def _sync_layout(self, screen):
         width, height = screen.get_size()
         if (width, height) == (self.screen_width, self.screen_height):
@@ -76,6 +91,7 @@ class MainMenuScene:
         self.center_x = width / 2
         self.visuals.screen_width = width
         self.visuals.screen_height = height
+        self._scale_title()
         for button in self.buttons:
             button.hitbox.centerx = int(self.center_x)
 
@@ -91,10 +107,8 @@ class MainMenuScene:
 
         self.visuals.draw(screen)
 
-        font = pygame.font.Font("fonts/" + self.game_title_font + ".ttf", self.game_title_font_size)
-        game_title = font.render(self.game_title.title(), True, COLORS["yellow"])
-        title_rect = game_title.get_rect(center=(self.center_x, self.title_y))
-        screen.blit(game_title, title_rect)
+        title_rect = self.title_image.get_rect(center=(self.center_x, self.title_y))
+        screen.blit(self.title_image, title_rect)
 
         for button in self.buttons:
             button.render(screen)
@@ -104,13 +118,21 @@ class MainMenuScene:
             status_rect = status_surf.get_rect(center=(self.center_x, self.screen_height - 40))
             screen.blit(status_surf, status_rect)
 
-    def _create_menu_buttons(self, items, center_x, start_y, spacing=20, padding=(20, 10),
-                    bg_color=(200, 200, 200), text_color=(255, 255, 255)):
+    def _create_menu_buttons(self, items, center_x, start_y, spacing=20,
+                    padding=(20, 10), bg_color=(0, 0, 0), text_color=(255, 255, 255)):
         buttons = []
         y = start_y
+        width = max(1, int(self.button_width))
         for label, callback in items:
-            button = Button(center=(center_x, y), label=label, on_click=callback,
-                            padding=padding, bg_color=bg_color, text_color=text_color)
+            button = Button(
+                center=(center_x, y),
+                w=width,
+                label=label,
+                on_click=callback,
+                padding=padding,
+                bg_color=bg_color,
+                text_color=text_color,
+            )
             button.active = True
             buttons.append(button)
             y += button.hitbox.height + spacing

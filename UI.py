@@ -52,7 +52,11 @@ class Button:
         elif isinstance(self.text, str):
             self.text = Label(self.text)
 
-        if w is None or h is None:
+        if self.sprites:
+            sw, sh = self.sprites[0].get_size()
+            w = w if w is not None else sw
+            h = h if h is not None else sh
+        elif w is None or h is None:
             text_w, text_h = self.text.get_size()
             w = w if w is not None else int(text_w + padding[0] * 2)
             h = h if h is not None else int(text_h + padding[1] * 2)
@@ -66,6 +70,8 @@ class Button:
     def update(self) -> str:
         if not self.active:
             self._was_pressed = False
+            self.sprite_idx = 0
+            self.current_bg_color = self.bg_color
             return self.states[0]
 
         mouse_pos = pygame.mouse.get_pos()
@@ -104,10 +110,21 @@ class Button:
         bg_color = bg_color if bg_color is not None else self.current_bg_color
         text_color = text_color if text_color is not None else self.text_color
         if self.sprites:
-            g.blit(self.sprites[self.sprite_idx], self.hitbox)
+            sprite = self.sprites[min(self.sprite_idx, len(self.sprites) - 1)]
+            dest = sprite.get_rect(center=self.hitbox.center)
+            if self.active:
+                g.blit(sprite, dest)
+            else:
+                faded = sprite.copy()
+                faded.fill((140, 140, 140, 255), special_flags=pygame.BLEND_RGBA_MULT)
+                g.blit(faded, dest)
+                text_color = tuple(max(0, c - 60) for c in text_color)
+            if self.text is not None:
+                self.text.render(g, self.hitbox, text_color)
         else:
             pygame.draw.rect(g, bg_color, self.hitbox)
-            self.text.render(g, self.hitbox, text_color)
+            if self.text is not None:
+                self.text.render(g, self.hitbox, text_color)
 
     def shade_color(self, color: tuple, amount: int) -> tuple:
         """Positive amount lightens, negative darkens."""

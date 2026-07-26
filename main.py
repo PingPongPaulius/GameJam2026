@@ -108,6 +108,9 @@ enable_snap_draws = False
 
 # Visuals (Things that fly in the sky during rocket launch)
 visuals_enabled = True
+VISUALS_START_DELAY = 5.0  # seconds after launch before first clutter can spawn
+SPAWN_EVENT = pygame.USEREVENT + 1
+pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
 visuals = FlightVisuals(0, SCREEN_WIDTH, SCREEN_HEIGHT)
 visuals.sprite_images = {
     "birds": pygame.image.load("Sprites/Background Clutter/Clutter_Birds.png").convert_alpha(),
@@ -235,6 +238,7 @@ def return_to_menu():
     score_overlay.hide()
     flight_parts.clear()
     explosion_manager.clear()
+    visuals.visuals_group.empty()
     if rocket is not None:
         audio_manager.update_from_rocket(rocket, Phase.MENU)
 
@@ -583,6 +587,10 @@ def start_flight():
     phase = Phase.FLIGHT
     flight_parts.clear()
     explosion_manager.clear()
+    visuals.visuals_group.empty()
+    # First spawn opportunity is after VISUALS_START_DELAY (stale timer events
+    # from build are also ignored via the flight_time gate below).
+    pygame.time.set_timer(SPAWN_EVENT, int(VISUALS_START_DELAY * 1000))
     audio_manager.on_flight_start()
     camera_scroll_y = 0
     camera_scroll_x = 0.0
@@ -837,6 +845,7 @@ async def restart_game() -> bool:
 
     flight_parts.clear()
     explosion_manager.clear()
+    visuals.visuals_group.empty()
     audio_manager.stop_music()
     if rocket is not None:
         audio_manager.update_from_rocket(rocket, Phase.BUILD)
@@ -1096,10 +1105,6 @@ def handle_resize(width, height):
         build_area.anchor_x, build_area.anchor_y = _build_area_anchor()
 
 
-SPAWN_EVENT = pygame.USEREVENT + 1
-pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
-
-
 def _page_is_hidden() -> bool:
     """True when this browser tab is in the background (web / pygbag only)."""
     if sys.platform != "emscripten":
@@ -1147,9 +1152,14 @@ async def frame():
                 return_to_menu()
                 continue
         elif event.type == SPAWN_EVENT:
-            if phase == Phase.FLIGHT:
+            if phase == Phase.FLIGHT and flight_time >= VISUALS_START_DELAY:
                 visuals._instantiate_new_visual()
-            pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
+                pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
+            elif phase == Phase.FLIGHT:
+                remaining_ms = max(1, int((VISUALS_START_DELAY - flight_time) * 1000))
+                pygame.time.set_timer(SPAWN_EVENT, remaining_ms)
+            else:
+                pygame.time.set_timer(SPAWN_EVENT, random.randint(2000, 5000))
         elif event.type == pygame.VIDEORESIZE:
             handle_resize(event.w, event.h)
 
