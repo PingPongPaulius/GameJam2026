@@ -24,16 +24,18 @@ def get_hmac_secret() -> str:
     return (HIGHSCORE_HMAC_SECRET or "").strip()
 
 
-def sign_flight_increment(secret: str) -> dict:
+def sign_flight_increment(end_reason: str, secret: str) -> dict:
     timestamp = int(time.time())
     nonce = secrets.token_hex(16)
-    canonical = f"timestamp={timestamp}&nonce={nonce}"
+    reason = str(end_reason)
+    canonical = f"end_reason={reason}&timestamp={timestamp}&nonce={nonce}"
     signature = hmac.new(
         secret.encode("utf-8"),
         canonical.encode("utf-8"),
         hashlib.sha256,
     ).hexdigest()
     return {
+        "end_reason": reason,
         "timestamp": timestamp,
         "nonce": nonce,
         "signature": signature,
@@ -69,6 +71,7 @@ def _increment_urllib(payload: dict, timeout: float) -> tuple[bool, int | str]:
 
 
 async def increment_flight_count(
+    end_reason: str,
     secret: str | None = None,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
 ) -> tuple[bool, int | str]:
@@ -80,7 +83,7 @@ async def increment_flight_count(
     if not secret or secret == "replace-with-shared-secret":
         return False, "Set HIGHSCORE_HMAC_SECRET in config.local.py"
 
-    payload = sign_flight_increment(secret)
+    payload = sign_flight_increment(end_reason, secret)
 
     if _IS_WEB:
         try:

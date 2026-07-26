@@ -152,6 +152,7 @@ score_submit_armed = False
 rocket_destroyed = False
 rocket_breakapart = False
 failure_reason = ""
+failure_kind = ""
 pad_stuck_timer = 0.0
 DEBRIS_GRAVITY = 320.0
 DEBRIS_DRAG = 0.4
@@ -216,7 +217,7 @@ def return_to_menu():
     global phase, V, W, UP, camera_scroll_y, camera_scroll_x
     global rocket_center_x, rocket_center_y, max_height, max_speed, flight_time
     global score_submit_timer, score_submit_armed, rocket_destroyed, pad_stuck_timer
-    global rocket_breakapart, failure_reason
+    global rocket_breakapart, failure_reason, failure_kind
 
     score_overlay.hide()
     flight_parts.clear()
@@ -239,6 +240,7 @@ def return_to_menu():
     rocket_destroyed = False
     rocket_breakapart = False
     failure_reason = ""
+    failure_kind = ""
     pad_stuck_timer = 0.0
     _reset_background_scroll()
 
@@ -268,26 +270,35 @@ def rotated_offset(dx: float, dy: float, angle: float) -> tuple:
     return dx * cos_a - dy * sin_a, dx * sin_a + dy * cos_a
 
 
+def _flight_end_reason() -> str:
+    if failure_kind:
+        return failure_kind
+    if max_height > 100_000:
+        return "success"
+    if max_height <= 1.0:
+        return "pad_stuck"
+    return "altitude"
+
+
 def _show_score_overlay():
     global phase, score_submit_timer, score_submit_armed
     score_submit_timer = 0.0
     score_submit_armed = False
     phase = Phase.RESULTS
+    end_reason = _flight_end_reason()
     reason = ""
-    if max_height <= 100_000:
-        reason = failure_reason or describe_failure(
-            "pad_stuck" if max_height <= 1.0 else "altitude"
-        )
+    if end_reason != "success":
+        reason = failure_reason or describe_failure(end_reason)
     score_overlay.show(max_height, max_speed, flight_time, failure_reason=reason)
-    asyncio.create_task(_report_flight_finished())
+    asyncio.create_task(_report_flight_finished(end_reason))
 
 
-async def _report_flight_finished():
-    ok, result = await increment_flight_count()
+async def _report_flight_finished(end_reason: str):
+    ok, result = await increment_flight_count(end_reason)
     if ok:
-        print(f"Flights API: ok=True count={result}")
+        print(f"Flights API: ok=True end_reason={end_reason!r} count={result}")
     else:
-        print(f"Flights API: ok=False ({result})")
+        print(f"Flights API: ok=False end_reason={end_reason!r} ({result})")
 
 
 def _halt_rocket_flight():
@@ -338,10 +349,11 @@ def update_breakapart_debris(dt: float):
 
 def _trigger_explosion(failure):
     global rocket_destroyed, rocket_breakapart, score_submit_timer, score_submit_armed
-    global failure_reason
+    global failure_reason, failure_kind
     if rocket_destroyed:
         return
     rocket_destroyed = True
+    failure_kind = failure.kind
     failure_reason = failure.message
     score_submit_armed = True
     score_submit_timer = 0.0
@@ -546,7 +558,7 @@ def update_flight(dt: float):
 def start_flight():
     global phase, V, W, camera_scroll_y, rocket_center_x, rocket_center_y
     global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
-    global rocket_destroyed, rocket_breakapart, pad_stuck_timer, failure_reason
+    global rocket_destroyed, rocket_breakapart, pad_stuck_timer, failure_reason, failure_kind
     errors = rocket.validate()
     if errors:
         print("Launching anyway with issues:", errors)
@@ -569,6 +581,7 @@ def start_flight():
     rocket_destroyed = False
     rocket_breakapart = False
     failure_reason = ""
+    failure_kind = ""
     pad_stuck_timer = 0.0
     _reset_background_scroll()
     V = 0
@@ -798,7 +811,7 @@ async def restart_game() -> bool:
     global phase, V, W, UP, camera_scroll_y, camera_scroll_x
     global rocket_center_x, rocket_center_y
     global max_height, max_speed, flight_time, score_submit_timer, score_submit_armed
-    global rocket_destroyed, rocket_breakapart, pad_stuck_timer, failure_reason
+    global rocket_destroyed, rocket_breakapart, pad_stuck_timer, failure_reason, failure_kind
 
     # load_catalogs -> apply_catalogs_to_game picks the pilot uniformly.
     ok, message = await load_catalogs()
@@ -828,6 +841,7 @@ async def restart_game() -> bool:
     rocket_destroyed = False
     rocket_breakapart = False
     failure_reason = ""
+    failure_kind = ""
     pad_stuck_timer = 0.0
     _reset_background_scroll()
     return True
