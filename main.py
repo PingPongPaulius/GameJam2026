@@ -498,7 +498,7 @@ def start_flight():
         W += instance.part_def.weight
         parts_used.add(instance.part_def.name)
         print(instance.part_def.name)
-        if "Nose" in instance.part_def.name:
+        if "Battery" in instance.part_def.name:
             is_robot_part_used = True
     
     data = {'time': build_scene.last_placed, 'parts': len(parts_used), 'battery': is_robot_part_used}
