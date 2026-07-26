@@ -243,11 +243,11 @@ class CreditsScene(OptionsScene):
 
 
 class PilotsScene(OptionsScene):
-    SUBTITLE = "To get pilot bonuses you have to complete secret missions:"
+    SUBTITLE = "Pilot Bonus Objectives"
     MISSIONS = [
-        ("Pilot_Human.png", "Human: build a ship of at least 5 different parts"),
-        ("Pilot_Alien.png", "Alien: Build the rocket in 10 seconds"),
-        ("Pilot_Robot.png", "Robot: Have a battery"),
+        ("Pilot_Human.png", "Human Master Builder: Assemble a starship using at least 5 unique components."),
+        ("Pilot_Alien.png", "Alien Hyperspace Assembly: Complete your ship build in under 10 seconds."),
+        ("Pilot_Robot.png", "Robot Juiced Up: Equip your ship build with a functional battery."),
     ]
 
     def __init__(self, screen, audio, on_phase_change=None):
