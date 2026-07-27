@@ -75,6 +75,10 @@ tokens = []
 camera_scroll_speed = 1
 half_camera_boundry = 200
 
+# Speed up game time
+time_multiplier_enabled = False
+time_multiplier_value = 10
+
 # Start altitude (meters) for Background_Slice_1..N. Slice 1/2 fill the climb
 # before the altitudes you specified for 3–6.
 BACKGROUND_SLICE_STARTS = (
@@ -1265,8 +1269,16 @@ async def frame():
     score_overlay.draw(screen)
 
     pygame.display.flip()
-    dt = min(clock.tick(FPS) / 1000.0, MAX_DT)
+    # get_pressed() reads current key state (held), unlike KEYDOWN which fires once.
+    keys = pygame.key.get_pressed()
+    base_dt = min(clock.tick(FPS) / 1000.0, MAX_DT)
+
+    if phase == Phase.FLIGHT and time_multiplier_enabled and keys[pygame.K_SPACE]:
+        dt = base_dt * time_multiplier_value
+    else:
+        dt = base_dt
     # Yield to the browser event loop (required for pygbag / python-wasm).
+
     await asyncio.sleep(0)
     return True
 
